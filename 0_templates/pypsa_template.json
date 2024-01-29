@@ -1,0 +1,269 @@
+{
+    "Network": {
+        "list_name": "networks",
+        "description": "Container for all components and functions which act upon the whole network.",
+        "type": NaN,
+        "attrs": {
+            "type": "networkx. OrderedMultiGraph",
+            "unit": NaN,
+            "default": NaN,
+            "description": "Graph of network.",
+            "status": "Output",
+            "static": true,
+            "varying": false,
+            "typ": "float",
+            "dtype": "float64"
+        }
+    },
+    "SubNetwork": {
+        "list_name": "sub_networks",
+        "description": "Subsets of buses and passive branches (i.e. lines and transformers) that are connected (i.e. synchronous areas).",
+        "type": NaN,
+        "attrs": {
+            "type": "string",
+            "unit": NaN,
+            "default": "",
+            "description": "Name of slack bus.",
+            "status": "Output",
+            "static": true,
+            "varying": false,
+            "typ": "str",
+            "dtype": "object"
+        }
+    },
+    "Bus": {
+        "list_name": "buses",
+        "description": "Electrically fundamental node where x-port objects attach.",
+        "type": NaN,
+        "attrs": {
+            "type": "series",
+            "unit": "currency/MWh",
+            "default": 0.0,
+            "description": "Locational marginal price from LOPF from power balance constraint",
+            "status": "Output",
+            "static": false,
+            "varying": true,
+            "typ": "float",
+            "dtype": "float64"
+        }
+    },
+    "Carrier": {
+        "list_name": "carriers",
+        "description": "Energy carrier, such as AC, DC, heat, wind, PV or coal. Buses have direct carriers and Generators indicate their primary energy carriers.  The Carrier can track properties relevant for global constraints, such as CO2 emissions.",
+        "type": NaN,
+        "attrs": {
+            "type": "float",
+            "unit": "MW",
+            "default": 0.0,
+            "description": "maximum capacity ratio for new installed capacity per investment period (in addition to max_growth)",
+            "status": "Input (optional)",
+            "static": true,
+            "varying": false,
+            "typ": "float",
+            "dtype": "float64"
+        }
+    },
+    "GlobalConstraint": {
+        "list_name": "global_constraints",
+        "description": "Constraints for OPF that affect many components, such as CO2 emission constraints.",
+        "type": NaN,
+        "attrs": {
+            "type": "float",
+            "unit": "currency/constant",
+            "default": 0.0,
+            "description": "Shadow price of global constraint",
+            "status": "Output",
+            "static": true,
+            "varying": false,
+            "typ": "float",
+            "dtype": "float64"
+        }
+    },
+    "Line": {
+        "list_name": "lines",
+        "description": "Lines include distribution and transmission lines, overhead lines and cables.",
+        "type": "passive_branch",
+        "attrs": {
+            "type": "series",
+            "unit": "currency/MVA",
+            "default": 0.0,
+            "description": "Shadow price of upper s_nom limit f \\leq F. Always non-negative.",
+            "status": "Output",
+            "static": false,
+            "varying": true,
+            "typ": "float",
+            "dtype": "float64"
+        }
+    },
+    "LineType": {
+        "list_name": "line_types",
+        "description": "Standard line types with per length values for impedances.",
+        "type": "standard_type",
+        "attrs": {
+            "type": "string",
+            "unit": NaN,
+            "default": "",
+            "description": "References for electrical parameters",
+            "status": "Input (optional)",
+            "static": true,
+            "varying": false,
+            "typ": "str",
+            "dtype": "object"
+        },
+        "standard_types": {
+            "f_nom": 0.0,
+            "r_per_length": 0.00264,
+            "x_per_length": 1e-06,
+            "c_per_length": 10000.0,
+            "i_nom": 2.8,
+            "mounting": "",
+            "cross_section": 3000.0,
+            "references": "Regional Group North Sea, \u201cOffshore Transmission Technology,\u201dENTSO-E AISBL, Brussels, Belgium, Tech. Rep., 2011. P.19-20"
+        }
+    },
+    "Transformer": {
+        "list_name": "transformers",
+        "description": "2-winding transformer.",
+        "type": "passive_branch",
+        "attrs": {
+            "type": "series",
+            "unit": "currency/MVA",
+            "default": 0.0,
+            "description": "Shadow price of upper s_nom limit f \\leq F. Always non-negative.",
+            "status": "Output",
+            "static": false,
+            "varying": true,
+            "typ": "float",
+            "dtype": "float64"
+        }
+    },
+    "TransformerType": {
+        "list_name": "transformer_types",
+        "description": "Standard 2-winding transformer types.",
+        "type": "standard_type",
+        "attrs": {
+            "type": "string",
+            "unit": NaN,
+            "default": "",
+            "description": "References for electrical parameters",
+            "status": "Input (optional)",
+            "static": true,
+            "varying": false,
+            "typ": "str",
+            "dtype": "object"
+        },
+        "standard_types": {
+            "f_nom": 50.0,
+            "s_nom": 63.0,
+            "v_nom_0": 110.0,
+            "v_nom_1": 20.0,
+            "vsc": 11.2,
+            "vscr": 0.322,
+            "pfe": 33.0,
+            "i0": 0.086,
+            "phase_shift": 150.0,
+            "tap_side": 0,
+            "tap_neutral": 0,
+            "tap_min": -9,
+            "tap_max": 9,
+            "tap_step": 1.5,
+            "references": "pandapower;Oswald - Transformatoren - Vorlesungsskript Elektrische Energieversorgung I;Werth Netzberechnung mit Erzeugungsprofilen"
+        }
+    },
+    "Link": {
+        "list_name": "links",
+        "description": "Link between two buses with controllable active power - can be used for a transport power flow model OR as a simplified version of point-to-point DC connection OR as a lossy energy converter. NB: for a lossless bi-directional HVDC or transport link, set p_min_pu = -1 and efficiency = 1. NB: It is assumed that the links neither produce nor consume reactive power.",
+        "type": "controllable_branch",
+        "attrs": {
+            "type": "series",
+            "unit": "currency/MWh",
+            "default": 0.0,
+            "description": "Shadow price of lower ramp down limit",
+            "status": "Output",
+            "static": false,
+            "varying": true,
+            "typ": "float",
+            "dtype": "float64"
+        }
+    },
+    "Load": {
+        "list_name": "loads",
+        "description": "PQ power consumer.",
+        "type": "controllable_one_port",
+        "attrs": {
+            "type": "series",
+            "unit": "MVar",
+            "default": 0.0,
+            "description": "reactive power (positive if net load)",
+            "status": "Output",
+            "static": false,
+            "varying": true,
+            "typ": "float",
+            "dtype": "float64"
+        }
+    },
+    "Generator": {
+        "list_name": "generators",
+        "description": "Power generator.",
+        "type": "controllable_one_port",
+        "attrs": {
+            "type": "series",
+            "unit": "currency/MWh",
+            "default": 0.0,
+            "description": "Shadow price of lower ramp down limit",
+            "status": "Output",
+            "static": false,
+            "varying": true,
+            "typ": "float",
+            "dtype": "float64"
+        }
+    },
+    "StorageUnit": {
+        "list_name": "storage_units",
+        "description": "Storage unit with fixed nominal-energy-to-nominal-power ratio.",
+        "type": "controllable_one_port",
+        "attrs": {
+            "type": "series",
+            "unit": "currency/MWh",
+            "default": 0.0,
+            "description": "Shadow price of storage consistency equations",
+            "status": "Output",
+            "static": false,
+            "varying": true,
+            "typ": "float",
+            "dtype": "float64"
+        }
+    },
+    "Store": {
+        "list_name": "stores",
+        "description": "Generic store, whose capacity may be optimised.",
+        "type": "controllable_one_port",
+        "attrs": {
+            "type": "series",
+            "unit": "currency/MWh",
+            "default": 0.0,
+            "description": "Shadow price of storage consistency equations",
+            "status": "Output",
+            "static": false,
+            "varying": true,
+            "typ": "float",
+            "dtype": "float64"
+        }
+    },
+    "ShuntImpedance": {
+        "list_name": "shunt_impedances",
+        "description": "Shunt y = g + jb.",
+        "type": "passive_one_port",
+        "attrs": {
+            "type": "float",
+            "unit": "per unit",
+            "default": 0.0,
+            "description": "Calculated from b and bus.v_nom.",
+            "status": "Output",
+            "static": true,
+            "varying": false,
+            "typ": "float",
+            "dtype": "float64"
+        }
+    }
+}
