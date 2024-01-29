@@ -1,0 +1,3 @@
+id,Name,Fueltype,Technology,Set,Country,Capacity,Efficiency,DateIn,DateRetrofit,DateOut,lat,lon,Duration,Volume_Mm3,DamHeight_m,StorageCapacity_MWh,EIC,projectID
+0,Zeb,Natural Gas,Steam Turbine,CHP,Bel,200,0.4,1945,1988,2021,50,10,,0,0,0,fict,"{“project”,”ID”}"
+1,Mel,Hard Coal,Steam Turbine,CHP,Aus,150,,1997,,2033,45,8,,0,0,0,fict,"{“project”,”ID”}"

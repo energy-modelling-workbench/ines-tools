@@ -1,0 +1,25 @@
+{
+    "items": {
+        "External data": {
+            "db_credentials": {}
+        },
+        "Intermediate data": {
+            "url": {
+                "username": "",
+                "password": ""
+            }
+        },
+        "SpineOpt data": {
+            "url": {
+                "username": "",
+                "password": ""
+            }
+        },
+        "Results": {
+            "url": {
+                "username": "",
+                "password": ""
+            }
+        }
+    }
+}

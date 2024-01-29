@@ -1,0 +1,13 @@
+{
+    "name": "filterandtransform",
+    "tooltype": "julia",
+    "includes": [
+        "filterandtransform.jl"
+    ],
+    "description": "Filters and transforms the data from the intermediate database to the spineopt databse",
+    "inputfiles": [],
+    "inputfiles_opt": [],
+    "outputfiles": [],
+    "cmdline_args": [],
+    "includes_main_path": "../../items/filter_and_transform"
+}

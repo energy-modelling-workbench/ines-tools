@@ -1,0 +1,239 @@
+{
+    "project": {
+        "version": 10,
+        "description": "",
+        "specifications": {
+            "Importer": [
+                {
+                    "type": "path",
+                    "relative": true,
+                    "path": ".spinetoolbox/specifications/Importer/external_importer.json"
+                }
+            ],
+            "Tool": [
+                {
+                    "type": "path",
+                    "relative": true,
+                    "path": ".spinetoolbox/specifications/Tool/filterandtransform.json"
+                }
+            ]
+        },
+        "connections": [
+            {
+                "name": "from Load template to SpineOpt data",
+                "from": [
+                    "Load template",
+                    "right"
+                ],
+                "to": [
+                    "SpineOpt data",
+                    "left"
+                ]
+            },
+            {
+                "name": "from SpineOpt data to Run SpineOpt",
+                "from": [
+                    "SpineOpt data",
+                    "right"
+                ],
+                "to": [
+                    "Run SpineOpt",
+                    "left"
+                ],
+                "filter_settings": {
+                    "known_filters": {
+                        "db_url@SpineOpt data": {
+                            "scenario_filter": {},
+                            "tool_filter": {
+                                "object_activity_control": true
+                            }
+                        }
+                    },
+                    "auto_online": true
+                }
+            },
+            {
+                "name": "from Run SpineOpt to Results",
+                "from": [
+                    "Run SpineOpt",
+                    "right"
+                ],
+                "to": [
+                    "Results",
+                    "left"
+                ]
+            },
+            {
+                "name": "from External data to Importer",
+                "from": [
+                    "External data",
+                    "right"
+                ],
+                "to": [
+                    "Importer",
+                    "left"
+                ]
+            },
+            {
+                "name": "from Importer to Intermediate data",
+                "from": [
+                    "Importer",
+                    "right"
+                ],
+                "to": [
+                    "Intermediate data",
+                    "left"
+                ]
+            },
+            {
+                "name": "from Intermediate data to Filter and Transform",
+                "from": [
+                    "Intermediate data",
+                    "right"
+                ],
+                "to": [
+                    "Filter and Transform",
+                    "left"
+                ]
+            },
+            {
+                "name": "from Filter and Transform to SpineOpt data",
+                "from": [
+                    "Filter and Transform",
+                    "right"
+                ],
+                "to": [
+                    "SpineOpt data",
+                    "left"
+                ]
+            }
+        ],
+        "jumps": []
+    },
+    "items": {
+        "Load template": {
+            "type": "Tool",
+            "description": "",
+            "x": -1.9815862541436973,
+            "y": 108.40205397107064,
+            "specification": "Load template",
+            "execute_in_work": true,
+            "cmd_line_args": [
+                {
+                    "type": "resource",
+                    "arg": "db_url@SpineOpt data"
+                }
+            ],
+            "kill_completed_processes": false
+        },
+        "Run SpineOpt": {
+            "type": "Tool",
+            "description": "",
+            "x": 286.52393104625645,
+            "y": 1.12491009894193,
+            "specification": "Run SpineOpt",
+            "execute_in_work": true,
+            "cmd_line_args": [
+                {
+                    "type": "resource",
+                    "arg": "db_url@SpineOpt data"
+                },
+                {
+                    "type": "resource",
+                    "arg": "db_url@Results"
+                }
+            ],
+            "kill_completed_processes": false
+        },
+        "External data": {
+            "type": "Data Connection",
+            "description": "",
+            "x": -422.9552256712477,
+            "y": -3.0355638206070523,
+            "file_references": [],
+            "db_references": []
+        },
+        "Importer": {
+            "type": "Importer",
+            "description": "",
+            "x": -290.4022721714069,
+            "y": -1.0118546068690133,
+            "specification": "external_importer",
+            "cancel_on_error": false,
+            "on_conflict": "merge",
+            "file_selection": [
+                [
+                    "<External data>/powerplants.csv",
+                    true
+                ]
+            ]
+        },
+        "Intermediate data": {
+            "type": "Data Store",
+            "description": "",
+            "x": -154.81375485095913,
+            "y": -2.0237092137380275,
+            "url": {
+                "dialect": "sqlite",
+                "host": "",
+                "port": "",
+                "database": {
+                    "type": "path",
+                    "relative": true,
+                    "path": ".spinetoolbox/items/intermediate_data/Intermediate data.sqlite"
+                }
+            }
+        },
+        "SpineOpt data": {
+            "type": "Data Store",
+            "description": "",
+            "x": 148.4296610993267,
+            "y": 1.1454656429552008,
+            "url": {
+                "dialect": "sqlite",
+                "host": "",
+                "port": "",
+                "database": {
+                    "type": "path",
+                    "relative": true,
+                    "path": ".spinetoolbox/items/spineopt_data/Input.sqlite"
+                }
+            }
+        },
+        "Results": {
+            "type": "Data Store",
+            "description": "",
+            "x": 431.52646111715643,
+            "y": 2.1162091617977072,
+            "url": {
+                "dialect": "sqlite",
+                "host": "",
+                "port": "",
+                "database": {
+                    "type": "path",
+                    "relative": true,
+                    "path": ".spinetoolbox/items/results/Output.sqlite"
+                }
+            }
+        },
+        "Filter and Transform": {
+            "type": "Tool",
+            "description": "",
+            "x": -5.0592730343450665,
+            "y": -1.0118546068690142,
+            "specification": "filterandtransform",
+            "execute_in_work": true,
+            "cmd_line_args": [
+                {
+                    "type": "resource",
+                    "arg": "db_url@Intermediate data"
+                },
+                {
+                    "type": "resource",
+                    "arg": "db_url@SpineOpt data"
+                }
+            ],
+            "kill_completed_processes": false
+        }
+    }
+}
