@@ -1,7 +1,8 @@
 import spinedb_api as api
 from spinedb_api import DatabaseMapping
+import typing
 
-def copy_entities(source_db, target_db, copy_entities):
+def copy_entities(source_db: DatabaseMapping, target_db: DatabaseMapping, copy_entities: typing.Dict):
     ## Copy entities
     for source_class, targets in copy_entities.items():
         # Elevate target_classes without additional definitions to lists

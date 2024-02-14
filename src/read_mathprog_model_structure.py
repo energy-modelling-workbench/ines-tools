@@ -2,6 +2,8 @@ import spinedb_api as api
 from spinedb_api import DatabaseMapping
 import sys
 
+if len(sys.argv) < 3:
+    exit("Not enough arguments (first: mathprog model_file path, second: Spine DB path, optional third: set name for 0-dimensional parameters")
 file = open(sys.argv[1])
 url_db = sys.argv[2]
 if len(sys.argv) > 3:

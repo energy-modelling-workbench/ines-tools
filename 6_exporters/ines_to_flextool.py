@@ -32,7 +32,7 @@ def main():
                 target_db.add_alternative_item(name=alternative.get('name'))
             target_db.commit_session("Added alternatives")
 
-            ## Copy entites
+            c## Copy entites
             target_db = ines_transform.copy_entities(source_db, target_db, entities_to_copy)
             ## Copy numeric parameters(source_db, target_db, copy_entities)
             target_db = ines_transform.transform_parameters(source_db, target_db, parameter_transforms, ts_to_map=True)
