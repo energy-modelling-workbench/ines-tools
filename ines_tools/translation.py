@@ -59,7 +59,7 @@ for (entityname, entityparameters) in entityparameterdict:
 	for entityname in entitydict[entityname][3]:
 		entities.append(entityname)
 		parameters.append(entityparameterdict[entityname])
-	getattr(map,"map_"*entitydict[entityname][1])(iodb,entities,parameters)
+	getattr(map,"map_"+entitydict[entityname][1])(iodb,entities,parameters)
 
 # postprocess
 print("Postprocessing")
