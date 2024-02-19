@@ -11,9 +11,12 @@ casedata = ARGS[3]
 # improvement: merging user and dataset for both entities and parameters
 
 # load generic energy format
-print("Load generic energy format")
+print("Load ines spec")
 with open(ines) as f:
 	iodb = json.load(f)
+	#the new version of the ines spec is missing fields that the script relies on:
+	iodb["entities"]=[]
+	iodb["parametervalues"]=[]
 
 # make convenience parameter dictionary
 parameterdefinition = {}
@@ -41,7 +44,7 @@ for userentity in userentities:
 	iodb["entities"].append(userentity)
 	# parameters
 	userentityname = userentity[2]
-	if len(userentity[3],1):#size(userentity[3],1)>1:
+	if userentity[3]:
 		userentityrelation = userentity[3]
 	else:
 		userentityrelation = userentityname
