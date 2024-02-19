@@ -2,10 +2,10 @@ import sys
 import json
 
 ARGS = sys.argv[1:]
-ines = ARGS[1]
-usersettings = ARGS[2]
-dataset = ARGS[3]
-casedata = ARGS[4]
+ines = ARGS[0]
+usersettings = ARGS[1]
+dataset = ARGS[2]
+casedata = ARGS[3]
 
 # improvement: use the database operations instead of dictionaries
 # improvement: merging user and dataset for both entities and parameters

@@ -6,9 +6,9 @@ import importlib
 #tool = "pypsa"#"spineopt"#
 
 ARGS = sys.argv[1:]
-map = importlib.import_module(ARGS[1])
-input = ARGS[2]
-output = ARGS[3]
+map = importlib.import_module(ARGS[0])
+input = ARGS[1]
+output = ARGS[2]
 
 iodb = {}
 
