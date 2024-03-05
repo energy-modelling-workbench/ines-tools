@@ -16,12 +16,14 @@ with open(ines) as f:
 	iodb = json.load(f)
 	#the new version of the ines spec is missing fields that the script relies on:
 	iodb["entities"]=[]
-	iodb["parametervalues"]=[]
+	iodb["parameter_values"]=[]
 
 # make convenience parameter dictionary
 parameterdefinition = {}
 for parameter in iodb["parameter_definitions"]:
-	parameterdefinition.get(parameter[1],[]).append(parameter[2])
+	if parameter[0] not in parameterdefinition:
+		parameterdefinition[parameter[0]] = []
+	parameterdefinition[parameter[0]].append(parameter[1])
 
 # load user specifications
 print("Load user database")
@@ -43,21 +45,21 @@ for userentity in userentities:
 	# entities
 	iodb["entities"].append(userentity)
 	# parameters
-	userentityname = userentity[2]
-	if userentity[3]:
-		userentityrelation = userentity[3]
+	userentityname = userentity[1]
+	if userentity[2]:
+		userentityrelation = userentity[2]
 	else:
 		userentityrelation = userentityname
 	#entity = fulldata[userentityname]
-	for parametername in parameterdefinition[userentity[1]]:
+	for parametername in parameterdefinition[userentity[0]]:
 		entityparametervalue = None
 		for parametervalue in fulldata["parameter_values"]:
-			if parametername == parametervalue[3] and userentityrelation == parametervalue[2]:
+			if parametername == parametervalue[2] and userentityrelation == parametervalue[1]:
 				entityparametervalue = parametervalue
 		for parametervalue in userdata["parameter_values"]:
-			if parametername == parametervalue[3] and userentityrelation == parametervalue[2]:
+			if parametername == parametervalue[2] and userentityrelation == parametervalue[1]:
 				entityparametervalue = parametervalue
-		if entityparametervalue == None:
+		if entityparametervalue != None:
 			iodb["parameter_values"].append(entityparametervalue)
 
 for alternative in alternatives:
@@ -66,5 +68,5 @@ for alternative in alternatives:
 #bring the data to the select data set
 print("Create Case data")
 #import_data(casedata, iodb, "Generate Case data")
-with open(casedata, "a") as f:
-	print(iodb, file=f)
+with open(casedata, "w") as f:
+	json.dump(iodb, f, indent=4)

@@ -1,14 +1,16 @@
 import sys
 import json
-import importlib
+from importlib.machinery import SourceFileLoader
 
 #path = dirname(@__DIR__)
 #tool = "pypsa"#"spineopt"#
 
 ARGS = sys.argv[1:]
-map = importlib.import_module(ARGS[0])
+mapfile = ARGS[0]
 input = ARGS[1]
 output = ARGS[2]
+
+map = SourceFileLoader("map", mapfile).load_module()
 
 iodb = {}
 
@@ -25,41 +27,47 @@ with open(input) as f:
 entitynames = {}
 entitydict = {}
 for entity in inputdata["entities"]:
-	if len(entity[3])>1:
-		entityrelation = entity[3]
-	else:
+	if len(entity[2])>1:
 		entityrelation = entity[2]
-	entitynames[entity[2]] = entityrelation
-	entitydict[entity[2]] = entity
+	else:
+		entityrelation = entity[1]
+	entitynames[entity[1]] = entityrelation
+	entitydict[entity[1]] = entity
 
 parameterdict = {}
 for parameterdefinition in inputdata["parameter_definitions"]:
-	entityclass = parameterdefinition[1]
-	parametername = parameterdefinition[2]
-	parametervalue = parameterdefinition[3]
-	parameterdict = parameterdict.get(parameterdict, entityclass, {}) | {parametername : parametervalue}
+	entityclass = parameterdefinition[0]
+	parametername = parameterdefinition[1]
+	parametervalue = parameterdefinition[2]
+	if entityclass not in parameterdict:
+		parameterdict[entityclass] = {}
+	parameterdict[entityclass][parametername] = parametervalue
 
 entityparameterdict = {}
 for parametervalue in inputdata["parameter_values"]:
-	entityname = entitynames[parametervalue[2]]
-	entityparameterdict = entityparameterdict.get(entityname, {}) | {parametervalue[3] : parametervalue[4]}
+	entityname = entitynames[parametervalue[1]]
+	if entityname not in entityparameterdict:
+		entityparameterdict[entityname] = {}
+	entityparameterdict[entityname][parametervalue[2]] = parametervalue[3]
 
 #correct for missing values
-for (entityname,entity) in entitydict:
-	entityclass = entity[1]
-	entityparameterdict.get(entityname, {})
-	for (parametername,parametervalue) in parameterdict[entityclass]:
-		entityparameterdict[entityname].get(parametername, parametervalue)
+for (entityname,entity) in entitydict.items():
+	entityclass = entity[0]
+	if entityname not in entityparameterdict:
+		entityparameterdict[entityname] = {}
+	for (parametername,parametervalue) in parameterdict[entityclass].items():
+		if parametername not in entityparameterdict[entityname]:
+			entityparameterdict[entityname][parametername] = parametervalue
 
 # map the input data to the output data
 print("Map input data to output data")
-for (entityname, entityparameters) in entityparameterdict:
+for (entityname, entityparameters) in entityparameterdict.items():
 	entities = [entityname]
 	parameters = [entityparameters]
-	for entityname in entitydict[entityname][3]:
+	for entityname in entitydict[entityname][2]:
 		entities.append(entityname)
 		parameters.append(entityparameterdict[entityname])
-	getattr(map,"map_"+entitydict[entityname][1])(iodb,entities,parameters)
+	getattr(map,"map_"+entitydict[entityname][0])(iodb,entities,parameters)
 
 # postprocess
 print("Postprocessing")
@@ -67,6 +75,6 @@ map.map_postprocess(iodb)
 
 # write data to output
 print("Writing data")
-with open(output, "a") as f:
-	print(iodb, file=f)
+with open(output, "w") as f:
+	json.dump(iodb, f, indent=4)
 	
