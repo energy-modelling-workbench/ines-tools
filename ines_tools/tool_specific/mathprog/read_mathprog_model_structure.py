@@ -2,6 +2,9 @@ import spinedb_api as api
 from spinedb_api import DatabaseMapping
 import sys
 
+
+dimens_to_param = ["YEAR"]
+
 if len(sys.argv) < 3:
     exit("Not enough arguments (first: mathprog model_file path, second: Spine DB path, optional third: set name for 0-dimensional parameters")
 file = open(sys.argv[1])
@@ -16,8 +19,10 @@ with DatabaseMapping(url_db) as target_db:
 
     set_names = []
     set_dimen_list = []
+    set_1d_all = []
     param_names = []
     param_dimen_list = []
+    all_param_dimen_list = []
 
     while True:
         next_line = file.readline()
@@ -42,13 +47,18 @@ with DatabaseMapping(url_db) as target_db:
                 for i, element in enumerate(elements):
                     if element == "dimen":
                         dimen_found = True
-                        if isDigit(elements[i+1]):      # Check that the word after 'dimen' is a positive integer
+                        if elements[i+1].isdigit():      # Check that the word after 'dimen' is a positive integer
                             if int(elements[i+1]) > 1:  # If dimen is more than 1, stop (just picking fundamental sets here, n-d sets are based on parameters
                                 break
                         else:
                             make_set = True
                 if not dimen_found:
+                    set_1d_all.append(second_word)
                     make_set = True
+                    for dimen_to_param in dimens_to_param:
+                        if dimen_to_param == second_word:
+                            make_set = False  # If the dimension is not on the list dimensions that will be put to parameters, make one
+                            break
                 if make_set:
                     set_names.append(second_word)
                     set_dimen_list.append([second_word])
@@ -60,6 +70,7 @@ with DatabaseMapping(url_db) as target_db:
                 param_expression = False
                 param_name_alias = []
                 param_dimens = []
+                all_param_dimens = []
                 for i, next_word in enumerate(elements):
                     if next_word == '{':
                         param_dimen_start = True
@@ -90,12 +101,18 @@ with DatabaseMapping(url_db) as target_db:
                             if param_dimen_candidate == set_name:
                                 param_dimens.append(param_dimen_candidate)
                                 break
+                        for set_name in set_1d_all:
+                            if param_dimen_candidate == set_name:
+                                all_param_dimens.append(param_dimen_candidate)
+                                break
                 if not param_expression and param_dimen_start and param_dimen_end:
                     param_names.append(second_word)
                     param_dimen_list.append(param_dimens)
+                    all_param_dimen_list.append(all_param_dimens)
                 if not param_expression and not param_dimen_start and not param_dimen_end:
                     param_names.append(second_word)
                     param_dimen_list.append([model_name])
+                    all_param_dimen_list.append([model_name])
 
     for param_dimens in param_dimen_list:
         new_param_dimens = True  # Start by assuming that the dimens are not in any set yet
@@ -120,8 +137,10 @@ with DatabaseMapping(url_db) as target_db:
             added, error = target_db.add_entity_class_item(name=set_name)
 
     for i, param_name in enumerate(param_names):
-        added, error = target_db.add_parameter_definition_item(name=param_name, entity_class_name='__'.join(param_dimen_list[i]))
+        added, error = target_db.add_parameter_definition_item(name=param_name,
+                                                               entity_class_name='__'.join(param_dimen_list[i]),
+                                                               description=' '.join(all_param_dimen_list[i]))
 
-    target_db.commit_session("foo")
+    target_db.commit_session("Model structure added from a Mathprog file")
 
 file.close()
