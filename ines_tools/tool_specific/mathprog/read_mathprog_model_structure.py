@@ -3,7 +3,7 @@ from spinedb_api import DatabaseMapping
 import sys
 
 
-dimens_to_param = ["YEAR"]
+dimens_to_param = ["REGION"]
 
 if len(sys.argv) < 3:
     exit("Not enough arguments (first: mathprog model_file path, second: Spine DB path, optional third: set name for 0-dimensional parameters")
@@ -105,9 +105,13 @@ with DatabaseMapping(url_db) as target_db:
                             if param_dimen_candidate == set_name:
                                 all_param_dimens.append(param_dimen_candidate)
                                 break
-                if not param_expression and param_dimen_start and param_dimen_end:
+                if not param_expression and param_dimen_start and param_dimen_end and param_dimens:
                     param_names.append(second_word)
                     param_dimen_list.append(param_dimens)
+                    all_param_dimen_list.append(all_param_dimens)
+                if not param_expression and param_dimen_start and param_dimen_end and not param_dimens:
+                    param_names.append(second_word)
+                    param_dimen_list.append([model_name])
                     all_param_dimen_list.append(all_param_dimens)
                 if not param_expression and not param_dimen_start and not param_dimen_end:
                     param_names.append(second_word)
