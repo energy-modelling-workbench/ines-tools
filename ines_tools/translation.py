@@ -64,9 +64,9 @@ print("Map input data to output data")
 for (entityname, entityparameters) in entityparameterdict.items():
 	entities = [entityname]
 	parameters = [entityparameters]
-	for entityname in entitydict[entityname][2]:
-		entities.append(entityname)
-		parameters.append(entityparameterdict[entityname])
+	for entityrelation in entitydict[entityname][2]:
+		entities.append(entityrelation)
+		parameters.append(entityparameterdict[entityrelation])
 	getattr(map,"map_"+entitydict[entityname][0])(iodb,entities,parameters)
 
 # postprocess
