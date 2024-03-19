@@ -4,6 +4,10 @@ import sys
 import pyarrow
 import numpy
 import spinetoolbox as toolbox
+import yaml
+import cProfile
+
+pr = cProfile.Profile()
 
 def make_nd_array(new_values, data_headers):
     header_len_list = []
@@ -21,39 +25,64 @@ def make_nd_array(new_values, data_headers):
     return value_array
 
 
-def write_param(entity_class, param, data_headers, param_array, class_dimen_positions, inside_dimen_positions):
-    print("bar")
-
+def write_param(entity_class, param, alternative_name, new_values, param_dims):
+    previous_entity_name = []
+    new_entity = False
+    # Get the first entity_name
     entity_name = []
-    def recurse(current):
-        entity_name.append()
+
+    class_dimen_positions = param_dims[2][:len(param_dims[0])]
+    inside_dimen_positions = param_dims[2][len(param_dims[0]):]
     for class_dim in class_dimen_positions:
-        dim_headers = data_headers[class_dim]
-        class_dim_name = []
-        for class_dim_name in dim_headers:
-            class_dim_name.append()
-        foo = api.parameter_value.Map(data_headers[inside_dim])
-        print(foo)
+        entity_name.append(new_values[0][class_dim])
+    entity_name_joined = '__'.join(entity_name)
+    insides = ([[] for _ in range(len(inside_dimen_positions) + 1)])
+    for q, value_row in enumerate(new_values):
+        next_entity_name = []
+        if q < len(new_values) - 1:
+            for class_dim in class_dimen_positions:  # Get the next entity_name
+                next_entity_name.append(new_values[q + 1][class_dim])
+            next_entity_name_joined = '__'.join(next_entity_name)
+        else:
+            next_entity_name_joined = ''
+        for r, inside_dim in enumerate(inside_dimen_positions):
+            insides[r].append(value_row[inside_dim])
+        insides[-1].append(value_row[-1])
+        added = []
+        values_in_map = insides[-1]
+        if entity_name_joined != next_entity_name_joined or q == len(new_values) - 1:
+            # write param
+            if len(inside_dimen_positions) == 1:
+                values_in_map = api.Map(insides[0], insides[-1])
+                values_in_map, type_ = api.to_database(values_in_map)
+            elif len(inside_dimen_positions) > 1:
+                vls = []
+                for x in range(len(insides[0])):
+                    vls.append(api.Map([insides[-2][x]], [insides[-1][x]]))
+                for r in reversed(range(len(inside_dimen_positions) - 1)):
+                    vls = api.Map(insides[r], vls)
+                values_in_map, type_ = api.to_database(vls)
+            else:
+                values_in_map, type_ = api.to_database(''.join(values_in_map))
+            entity_class_split = entity_class.split("__")
+            for c, entity_dim_name in enumerate(entity_name):
+                added = target_db.add_update_entity_item(entity_class_name=entity_class_split[c],
+                                                         name=entity_dim_name
+                                                         )
 
-#            Map(["utopia", "dystopia"],
-#                [Map(["gas", "oil"], [5, 10], index_name="fuel"), Map(["oil"], [1], index_name="fuel)], index_name="
-#                 region")
+            added = target_db.add_update_entity_item(entity_class_name=entity_class,
+                                                     element_name_list=tuple(entity_name)
+                                                     )
+            added, error = target_db.add_parameter_value_item(entity_class_name=entity_class,
+                                                              parameter_definition_name=param,
+                                                              entity_byname=tuple(entity_name),
+                                                              value=values_in_map,
+                                                              type=type_,
+                                                              alternative_name=alternative_name)
 
-# for inside_dimen_position in inside_dimen_positions:
-#    if inside_dimen_position == tabbed_dims[0]:
-#        print("foo")
-# tab_def[tabbed_dims[0]] = row_header
-# tab_def[tabbed_dims[1]] = column_header
-# added = target_db.add_update_entity_item(entity_class_name=entity_class,
-#                                          entity_byname=tab_def)
-# added, error = target_db.add_parameter_value_item(entity_class_name=entity_class,
-#                                                   parameter_definition_name=second_word,
-#                                                   entity_byname=tab_def,
-#                                                   value=1,
-#                                                   type=1,
-#                                                   alternative_name=alternative_name)
-# if error:
-#     print(error)
+            insides = [[] for _ in range(len(inside_dimen_positions) + 1)]
+        entity_name = next_entity_name
+    target_db.commit_session("Parameter added")
 
 
 if len(sys.argv) < 3:
@@ -64,7 +93,12 @@ alternative_name = "base"
 if len(sys.argv) > 3:
     alternative_name = sys.argv[3]
 
-dimens_to_param = ["REGION"]
+with open('param_dimens.yaml', 'r') as yaml_file:
+    param_listing = yaml.safe_load(yaml_file)
+
+with open('settings.yaml', 'r') as yaml_file:
+    settings = yaml.safe_load(yaml_file)
+    dimens_to_param = settings["dimens_to_param"]
 
 with DatabaseMapping(url_db) as target_db:
 
@@ -84,7 +118,7 @@ with DatabaseMapping(url_db) as target_db:
         all_params_dimen_dict_list = {}
         for param in params:
             params_name_list.append(param["name"])
-            all_params_dimen_dict_list[param["name"]] = param["description"].split()
+            all_params_dimen_dict_list[param["name"]] = param_listing[param["name"]][0] + param_listing[param["name"]][1]
         class__param[entity_class["name"]] = params_name_list
         class__param__all_dimens[entity_class["name"]] = all_params_dimen_dict_list
         dimens_name_list = []
@@ -118,6 +152,7 @@ with DatabaseMapping(url_db) as target_db:
             first_word = elements.pop(0)
             if len(elements) > 0:
                 second_word = elements.pop(0)
+
             if first_word == "set":
                 class_name_found = False
                 class_name_to_parameters = False
@@ -132,7 +167,7 @@ with DatabaseMapping(url_db) as target_db:
                         class_name_to_parameters = True
                         break
                 if not class_name_found and not class_name_to_parameters:
-                    exit("No class found for set " + first_word)
+                    exit("No class found for set " + second_word)
                 if class_name_found:
                     read_set_elements = False
                     set_member_names = []
@@ -153,15 +188,11 @@ with DatabaseMapping(url_db) as target_db:
                 param_dimen_start = False
                 param_dimen_end = False
                 param_attributes_start = False
-                first_equal_sign = False
-                second_equal_sign = False
                 colon_sign = False
-                tabbed_def_flag = False
                 value_given = False
                 tabbed_column_headers = []
                 param_name_alias = []
                 param_dimens = []
-                tab_def = []
                 is_default_value = False
                 current_entity_class_dimens = []
                 entity_class_dimens = []
@@ -170,12 +201,11 @@ with DatabaseMapping(url_db) as target_db:
                 is_class_dimen = []
                 current_inside_dimens = []
                 current_untabbed_headers = []
-                tabbed_col_orig_pos = []
-                tabbed_row_orig_pos = []
-                tabbed_col_temp_pos = []
-                tabbed_row_temp_pos = []
+                tabbed_col_orig_pos = 0
+                tabbed_row_orig_pos = 0
+                current_untabbed_locations = []
                 found_param = False
-                colon_count = 0
+                tabbed_flag = False
                 for entity_class in class__param:  # Try to find the param from the DB structure, check all entity_classes
                     for param in class__param[entity_class]:  # Go through every parameter in the class
                         if second_word == param:              # If the parameter name matches DB parameter name
@@ -210,6 +240,7 @@ with DatabaseMapping(url_db) as target_db:
                     if found_param:  # No need to check further entity classes if the parameter has been found (no duplicate parameter names in MathProg)
                         data_headers = [[] for _ in range(len(current_parameter_dimens))]  # List of lists where each dimension has it's own list of header names.
                         data_counter = [-1 for _ in range(len(current_parameter_dimens))]
+                        print(param)
                         break
 
                 for i, next_word in enumerate(elements):
@@ -217,64 +248,36 @@ with DatabaseMapping(url_db) as target_db:
                         continue
                     if next_word == ';':
                         if new_values:
-
-                            param_array = make_nd_array(new_values, data_headers)
-
-                            for c, inside_dim in enumerate(inside_dimen_positions):
-                                target_dim_loc = len(current_parameter_dimens) - c - 1
-                                if not target_dim_loc == inside_dim:
-                                    param_array = numpy.moveaxis(param_array, inside_dim, target_dim_loc)
-                                    data_headers.insert(target_dim_loc, data_headers.pop(inside_dim))
-                                    current_parameter_dimens.insert(target_dim_loc, current_parameter_dimens.pop(inside_dim))
-                            new_entity_class_dimensions = []
-                            for class_dim in current_entity_class_dimens:
-                                for param_dim in current_parameter_dimens:
-                                    if class_dim == param_dim:
-                                        new_entity_class_dimensions.append(class_dim)
-                                        break
-                            current_entity_class_dimens = new_entity_class_dimensions
-                            new_current_inside_dimens = []
-                            for class_dim in current_inside_dimens:
-                                for param_dim in current_parameter_dimens:
-                                    if class_dim == param_dim:
-                                        new_current_inside_dimens.append(class_dim)
-                                        break
-                            current_inside_dimens = new_current_inside_dimens
-
-
-                            write_param(entity_class, param, data_headers, param_array, class_dimen_positions, inside_dimen_positions)
-
+                            write_param(entity_class, param, alternative_name, new_values, param_listing[param])
                         if not value_given and is_default_value:
                             add_all_entity_combinations_to_class.append(entity_class)
                         break
                     if next_word == '[':
-                        tabbed_def_flag = True
                         dim_number = 0
                         non_tabbed_dim_number = 0
                         current_untabbed_headers = []
+                        current_untabbed_locations = []
                         read_tabbed = elements.pop(i + 1)
                         first_star_given = False
                         data_header_branches = False
+                        if len(current_parameter_dimens) > len(param_listing[param][2]):  # If there is no class dimension (all dimensions inside_class)
+                            dim_number = 1
+                            current_untabbed_locations.append(0)
+                            data_headers[0].append(settings["class_for_scalars"])
                         while read_tabbed != ']':
                             if read_tabbed != ',':
                                 if read_tabbed == '*':
                                     if not first_star_given:
-                                        tabbed_row_orig_pos.append(dim_number)
+                                        tabbed_row_orig_pos = dim_number
                                         tabbed_dim_loc = len(current_parameter_dimens) - 2
-                                        tabbed_row_temp_pos.append(tabbed_dim_loc)
                                         first_star_given = True
                                     else:
-                                        tabbed_col_orig_pos.append(dim_number)
+                                        tabbed_col_orig_pos = dim_number
                                         tabbed_dim_loc = len(current_parameter_dimens) - 1
-                                        tabbed_col_temp_pos.append(tabbed_dim_loc)
-                                    #if not data_headers[tabbed_dim_loc]:
-                                    # else:
-                                    #     if not any([] in sublist for sublist in data_headers[tabbed_dim_loc]):
-                                    #         temp = data_headers[tabbed_dim_loc]
-                                    #         data_headers[tabbed_dim_loc].append([temp])
                                 else:
                                     data_header_found = False
                                     current_untabbed_headers.append(read_tabbed)
+                                    current_untabbed_locations.append(dim_number)
                                     for k, data_header in enumerate(data_headers[non_tabbed_dim_number]):
                                         if data_header == read_tabbed:
                                             data_header_found = True
@@ -293,12 +296,18 @@ with DatabaseMapping(url_db) as target_db:
                         continue
                     if next_word == ':':
                         colon_sign = True
-                        if not tabbed_col_orig_pos:
-                            tabbed_col_orig_pos.append(1)
-                            tabbed_row_orig_pos.append(0)
-                            tabbed_col_temp_pos.append(1)
-                            tabbed_row_temp_pos.append(0)
+                        if not tabbed_col_orig_pos and not tabbed_row_orig_pos and not tabbed_flag:  # Check whether asterix has been used
+                            tabbed_flag = True
+                            tabbed_col_orig_pos = 1
+                            tabbed_row_orig_pos = 0
                             non_tabbed_dim_number = 0
+                            if len(current_parameter_dimens) > len(param_listing[param][2]):  # If there is no class dimension (all dimensions inside_class)
+                                tabbed_col_orig_pos = 2
+                                tabbed_row_orig_pos = 1
+                                non_tabbed_dim_number = 1
+                                current_untabbed_locations.append(0)
+                                data_headers[0].append(settings["class_for_scalars"])
+                                data_counter[0] = 0
                         next_column_header_element = elements.pop(i+1)
                         while next_column_header_element != ':=' and next_column_header_element != '\n':
                             data_header_found = False
@@ -316,7 +325,6 @@ with DatabaseMapping(url_db) as target_db:
                             elements.pop(i+1)
                         value_row_pos = 0
                         tabbed_row_count = -1
-                        colon_count += 1
                         continue
                     if colon_sign and value_row_pos == 0:
                         tabbed_dim_loc = len(current_parameter_dimens) - 2
@@ -333,19 +341,17 @@ with DatabaseMapping(url_db) as target_db:
                         tabbed_row_count += 1
                         value_row_pos = 1
                     if colon_sign and value_row_pos > 0:
-                        #tab_def[tabbed_dims[0]] = tabbed_row_name
-                        #entity_name_dimens = tab_def
                         param_values_in_row = []
                         param_types_in_row = []
-                        for j, tabbed_column_header_name in enumerate(data_headers[non_tabbed_dim_number + 1]):
+                        temp = [-1 for _ in range(len(current_parameter_dimens) + 1)]
+                        for j, tabbed_column_header_name in enumerate(data_headers[len(current_parameter_dimens) - 1]):
                             value = elements.pop(i+1)
-                            new_values.append([])
-                            temp = new_values[-1]
-                            for header in current_untabbed_headers:
-                                temp.append(header)
-                            temp.append(current_row_header)
-                            temp.append(tabbed_column_header_name)
-                            temp.append(value)
+                            for d, u in enumerate(current_untabbed_locations):
+                                temp[u] = data_headers[d][data_counter[d]]
+                            temp[tabbed_row_orig_pos] = current_row_header
+                            temp[tabbed_col_orig_pos] = tabbed_column_header_name
+                            temp[-1] = value
+                            new_values.append(temp)
                         value_row_pos = 0
                         value_given = True
                         continue
@@ -365,8 +371,6 @@ with DatabaseMapping(url_db) as target_db:
                         elements.pop(i)
                         continue
 
-                # HERE COMMIT PARAMETER VALUES THAT HAVE BEEN ACCRUED FROM THE param SENTENCE
-
 
                 # Keeping code to deal with 'in' in the param dimension defs - needs to be implemented
                     # if not param_dimen_start and not param_attributes_start:
@@ -384,38 +388,11 @@ with DatabaseMapping(url_db) as target_db:
                     #         if param_dimen_candidate == set_name:
                     #             param_dimens.append(param_dimen_candidate)
                     #             break
-#    target_db.commit_session("Commit parameters")
 
 
-    # for param_dimens in param_dimen_list:
-    #     new_param_dimens = True  # Start by assuming that the dimens are not in any set yet
-    #     for set_dimens in set_dimen_list:
-    #         if len(param_dimens) == len(set_dimens):
-    #             param_dimens_in_set = True  # Start by assuming that the dimens are the same
-    #             for i, param_dimen in enumerate(param_dimens):
-    #                 if param_dimen != set_dimens[i]:
-    #                     param_dimens_in_set = False  # The dimens weren't the same, so it could be new
-    #                     break
-    #             if param_dimens_in_set:       # Went through the dimens and it was the same!
-    #                 new_param_dimens = False  # So, it's not a new set
-    #                 break                     # No point to check the rest
-    #     if new_param_dimens:  # It turned out to be a new set
-    #         set_dimen_list.append(param_dimens)  # So, let's add it to the set_dimens_list
-    #         set_names.append('__'.join(param_dimens))  # And give the set a name
-    #
-    # for i, set_name in enumerate(set_names):
-    #     if len(set_dimen_list[i]) > 1:
-    #         added, error = target_db.add_entity_class_item(name=set_name, dimension_name_list=set_dimen_list[i])
-    #     else:
-    #         added, error = target_db.add_entity_class_item(name=set_name)
-    #
-    # for i, param_name in enumerate(param_names):
-    #     added, error = target_db.add_parameter_definition_item(name=param_name, entity_class_name='__'.join(param_dimen_list[i]))
-    #
-    # target_db.commit_session("foo")
 
 file.close()
 
-
+pr.dump_stats('profile.pstat')
 
 
