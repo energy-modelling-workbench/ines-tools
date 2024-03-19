@@ -3,15 +3,16 @@ from spinedb_api import DatabaseMapping
 import sys
 import yaml
 
-with open('settings.yaml', 'r') as yaml_file:
+
+if len(sys.argv) < 2:
+    exit("You need to provide the name (and possibly path) of the settings file as an argument")
+
+with open(sys.argv[1], 'r') as yaml_file:
     settings = yaml.safe_load(yaml_file)
 dimens_to_param = settings["dimens_to_param"]
 class_for_scalars = settings["class_for_scalars"]
-
-if len(sys.argv) < 3:
-    exit("Not enough arguments (first: mathprog model_file path, second: Spine DB path, optional third: set name for 0-dimensional parameters")
-file = open(sys.argv[1])
-url_db = sys.argv[2]
+url_db = settings["target_db"]
+file = open(settings["model_code"])
 
 with DatabaseMapping(url_db) as target_db:
     target_db.purge_items('entity_class')

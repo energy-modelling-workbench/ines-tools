@@ -6,6 +6,7 @@ import numpy
 import spinetoolbox as toolbox
 import yaml
 import cProfile
+import copy
 
 pr = cProfile.Profile()
 
@@ -53,14 +54,14 @@ def write_param(entity_class, param, alternative_name, new_values, param_dims):
         if entity_name_joined != next_entity_name_joined or q == len(new_values) - 1:
             # write param
             if len(inside_dimen_positions) == 1:
-                values_in_map = api.Map(insides[0], insides[-1])
+                values_in_map = api.Map(insides[0], insides[-1], index_name=param_dims[1][0])
                 values_in_map, type_ = api.to_database(values_in_map)
             elif len(inside_dimen_positions) > 1:
                 vls = []
                 for x in range(len(insides[0])):
-                    vls.append(api.Map([insides[-2][x]], [insides[-1][x]]))
+                    vls.append(api.Map([insides[-2][x]], [insides[-1][x]], index_name=param_dims[1][len(inside_dimen_positions) - 1]))
                 for r in reversed(range(len(inside_dimen_positions) - 1)):
-                    vls = api.Map(insides[r], vls)
+                    vls = api.Map(insides[r], vls, index_name=param_dims[1][r])
                 values_in_map, type_ = api.to_database(vls)
             else:
                 values_in_map, type_ = api.to_database(''.join(values_in_map))
@@ -85,20 +86,18 @@ def write_param(entity_class, param, alternative_name, new_values, param_dims):
     target_db.commit_session("Parameter added")
 
 
-if len(sys.argv) < 3:
-    exit("Not enough arguments (first: mathprog data file path, second: path to Spine DB with model structure")
-file = open(sys.argv[1])
-url_db = sys.argv[2]
-alternative_name = "base"
-if len(sys.argv) > 3:
-    alternative_name = sys.argv[3]
+if len(sys.argv) < 2:
+    exit("You need to provide the name (and possibly path) of the settings file as an argument")
+with open(sys.argv[1], 'r') as yaml_file:
+    settings = yaml.safe_load(yaml_file)
+dimens_to_param = settings["dimens_to_param"]
+class_for_scalars = settings["class_for_scalars"]
+url_db = settings["target_db"]
+file = open(settings["model_data"])
+alternative_name = settings["alternative_name"]
 
 with open('param_dimens.yaml', 'r') as yaml_file:
     param_listing = yaml.safe_load(yaml_file)
-
-with open('settings.yaml', 'r') as yaml_file:
-    settings = yaml.safe_load(yaml_file)
-    dimens_to_param = settings["dimens_to_param"]
 
 with DatabaseMapping(url_db) as target_db:
 
@@ -169,6 +168,7 @@ with DatabaseMapping(url_db) as target_db:
                 if not class_name_found and not class_name_to_parameters:
                     exit("No class found for set " + second_word)
                 if class_name_found:
+                    added = None
                     read_set_elements = False
                     set_member_names = []
                     for i, element in enumerate(elements):
@@ -351,7 +351,7 @@ with DatabaseMapping(url_db) as target_db:
                             temp[tabbed_row_orig_pos] = current_row_header
                             temp[tabbed_col_orig_pos] = tabbed_column_header_name
                             temp[-1] = value
-                            new_values.append(temp)
+                            new_values.append(copy.copy(temp))
                         value_row_pos = 0
                         value_given = True
                         continue
