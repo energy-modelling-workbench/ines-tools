@@ -1,5 +1,6 @@
 import sys
 import json
+import spinedb_api as api
 
 ARGS = sys.argv[1:]
 ines = ARGS[0]
@@ -35,8 +36,14 @@ userentities = userdata["entities"]
 
 # load full dataset
 print("Load full database")
-with open(dataset) as f:
-	fulldata = json.load(f)
+if dataset.split(".")[-1] == 'json':
+	with open(dataset) as f:
+		fulldata = json.load(f)
+else:
+	with api.DatabaseMapping(casedata) as source_db:
+		fulldata = {}
+		fulldata["entities"]=source_db.get_items("entity")
+		fulldata["parameter_values"]=source_db.get_items("parameter_value")
 
 # create case data
 print("Stack the template with a part of the full database and the user database")
@@ -68,5 +75,16 @@ for alternative in alternatives:
 #bring the data to the select data set
 print("Create Case data")
 #import_data(casedata, iodb, "Generate Case data")
-with open(casedata, "w") as f:
-	json.dump(iodb, f, indent=4)
+if casedata.split(".")[-1] == 'json':
+    with open(casedata, 'w') as f:
+        json.dump(iodb, f, indent=4)
+else:
+	with api.DatabaseMapping(casedata) as target_db:
+		target_db.purge_items('parameter_value')
+		target_db.purge_items('entity')
+		target_db.purge_items('alternative')
+		target_db.refresh_session()
+		target_db.commit_session("Purge items")
+		api.import_data(target_db,**iodb)
+		target_db.refresh_session()
+		target_db.commit_session("Import data")
