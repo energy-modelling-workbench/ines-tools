@@ -1,5 +1,7 @@
 import sys
 import json
+import spinedb_api as api
+from spinedb_api import purge
 
 ARGS = sys.argv[1:]
 ines = ARGS[0]
@@ -17,6 +19,7 @@ with open(ines) as f:
 	#the new version of the ines spec is missing fields that the script relies on:
 	iodb["entities"]=[]
 	iodb["parameter_values"]=[]
+	iodb["alternatives"]=[]
 
 # make convenience parameter dictionary
 parameterdefinition = {}
@@ -35,8 +38,12 @@ userentities = userdata["entities"]
 
 # load full dataset
 print("Load full database")
-with open(dataset) as f:
-	fulldata = json.load(f)
+if dataset.split(".")[-1] == 'json':
+	with open(dataset) as f:
+		fulldata = json.load(f)
+else:
+	with api.DatabaseMapping(dataset) as source_db:
+		fulldata = api.export_data(source_db,parse_value=api.parameter_value.load_db_value)
 
 # create case data
 print("Stack the template with a part of the full database and the user database")
@@ -45,22 +52,21 @@ for userentity in userentities:
 	# entities
 	iodb["entities"].append(userentity)
 	# parameters
+	userentityclass = userentity[0]
 	userentityname = userentity[1]
-	if userentity[2]:
-		userentityrelation = userentity[2]
-	else:
-		userentityrelation = userentityname
 	#entity = fulldata[userentityname]
-	for parametername in parameterdefinition[userentity[0]]:
+	for parametername in parameterdefinition[userentityclass]:
 		entityparametervalue = None
 		for parametervalue in fulldata["parameter_values"]:
-			if parametername == parametervalue[2] and userentityrelation == parametervalue[1]:
+			if parametername == parametervalue[2] and userentityname == parametervalue[1]:
 				entityparametervalue = parametervalue
 		for parametervalue in userdata["parameter_values"]:
-			if parametername == parametervalue[2] and userentityrelation == parametervalue[1]:
+			if parametername == parametervalue[2] and userentityname == parametervalue[1]:
 				entityparametervalue = parametervalue
 		if entityparametervalue != None:
 			iodb["parameter_values"].append(entityparametervalue)
+			if entityparametervalue[4] not in alternatives:
+				alternatives.append(entityparametervalue[4])
 
 for alternative in alternatives:
 	iodb["alternatives"].append([alternative, ""])
@@ -68,5 +74,15 @@ for alternative in alternatives:
 #bring the data to the select data set
 print("Create Case data")
 #import_data(casedata, iodb, "Generate Case data")
-with open(casedata, "w") as f:
-	json.dump(iodb, f, indent=4)
+if casedata.split(".")[-1] == 'json':
+    with open(casedata, 'w') as f:
+        json.dump(iodb, f, indent=4)
+else:
+	with api.DatabaseMapping(casedata) as target_db:
+		purge.purge(target_db, purge_settings=None)
+		message = api.import_data(target_db,**iodb)
+		target_db.refresh_session()
+		target_db.commit_session("Import data")
+
+		# debugging
+		#print(message)
