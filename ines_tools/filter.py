@@ -1,6 +1,7 @@
 import sys
 import json
 import spinedb_api as api
+from spinedb_api import purge
 
 ARGS = sys.argv[1:]
 ines = ARGS[0]
@@ -78,11 +79,7 @@ if casedata.split(".")[-1] == 'json':
         json.dump(iodb, f, indent=4)
 else:
 	with api.DatabaseMapping(casedata) as target_db:
-		target_db.purge_items('parameter_value')
-		target_db.purge_items('entity')
-		target_db.purge_items('alternative')
-		target_db.refresh_session()
-		target_db.commit_session("Purge items")
+		purge.purge(target_db, purge_settings=None)
 		message = api.import_data(target_db,**iodb)
 		target_db.refresh_session()
 		target_db.commit_session("Import data")
