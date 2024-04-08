@@ -14,6 +14,9 @@ class_for_scalars = settings["class_for_scalars"]
 url_db = settings["target_db"]
 file = open(settings["model_code"])
 
+if len(sys.argv) > 2:
+    url_db = sys.argv[2]
+
 with DatabaseMapping(url_db) as target_db:
     target_db.purge_items('entity_class')
 
@@ -63,6 +66,9 @@ with DatabaseMapping(url_db) as target_db:
                             make_set = False  # If the dimension is not on the list dimensions that will be put to parameters, make one
                             break
                 if make_set:
+                    set_names.append(second_word)
+                    set_dimen_list.append([second_word])
+                if not make_set and not dimen_found:
                     set_names.append(second_word)
                     set_dimen_list.append([second_word])
                 if not dimen_found and make_set:

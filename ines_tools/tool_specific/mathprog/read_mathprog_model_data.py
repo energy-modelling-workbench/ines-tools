@@ -5,10 +5,10 @@ import pyarrow
 import numpy
 import spinetoolbox as toolbox
 import yaml
-import cProfile
+#import cProfile
 import copy
 
-pr = cProfile.Profile()
+#pr = cProfile.Profile()
 
 def make_nd_array(new_values, data_headers):
     header_len_list = []
@@ -32,40 +32,55 @@ def write_param(entity_class, param, alternative_name, new_values, param_dims):
     # Get the first entity_name
     entity_name = []
 
-    class_dimen_positions = param_dims[2][:len(param_dims[0])]
-    inside_dimen_positions = param_dims[2][len(param_dims[0]):]
+    if len(param_dims[2]) < len(param_dims[0]) + len(param_dims[1]):  # Take out the artificial class dimension
+        class_dimen_positions = [0]
+        inside_dimen_positions = param_dims[2][len(param_dims[0]) - 1:]
+    else:
+        class_dimen_positions = param_dims[2][:len(param_dims[0])]
+        inside_dimen_positions = param_dims[2][len(param_dims[0]):]
     for class_dim in class_dimen_positions:
         entity_name.append(new_values[0][class_dim])
-    entity_name_joined = '__'.join(entity_name)
     insides = ([[] for _ in range(len(inside_dimen_positions) + 1)])
     for q, value_row in enumerate(new_values):
+        entity_name_joined = '__'.join(entity_name)
         next_entity_name = []
-        if q < len(new_values) - 1:
+        if q < len(new_values) - 1:  # If not the last value row, then get the name of the next entity
             for class_dim in class_dimen_positions:  # Get the next entity_name
                 next_entity_name.append(new_values[q + 1][class_dim])
             next_entity_name_joined = '__'.join(next_entity_name)
         else:
             next_entity_name_joined = ''
-        for r, inside_dim in enumerate(inside_dimen_positions):
+        for r, inside_dim in enumerate(inside_dimen_positions):  # Get the index names for the current value row
             insides[r].append(value_row[inside_dim])
-        insides[-1].append(value_row[-1])
-        added = []
-        values_in_map = insides[-1]
+        insides[-1].append(value_row[-1])  # Get the values for the current value row (from the last column of the value_row
+        # If the entity name changes, then write the data for the current entity_name
         if entity_name_joined != next_entity_name_joined or q == len(new_values) - 1:
             # write param
             if len(inside_dimen_positions) == 1:
-                values_in_map = api.Map(insides[0], insides[-1], index_name=param_dims[1][0])
-                values_in_map, type_ = api.to_database(values_in_map)
-            elif len(inside_dimen_positions) > 1:
-                vls = []
-                for x in range(len(insides[0])):
-                    vls.append(api.Map([insides[-2][x]], [insides[-1][x]], index_name=param_dims[1][len(inside_dimen_positions) - 1]))
-                for r in reversed(range(len(inside_dimen_positions) - 1)):
-                    vls = api.Map(insides[r], vls, index_name=param_dims[1][r])
+                vls = api.Map(insides[0], insides[-1], index_name=param_dims[1][0])
                 values_in_map, type_ = api.to_database(vls)
+            elif len(inside_dimen_positions) == 2:
+                vls = []
+                outer_index_list = []
+                current_2nd_last_dim_index = insides[-3][0]
+                outer_index_list.append(current_2nd_last_dim_index)
+                start_2nd_last_dim = 0
+                for x in range(len(insides[0])):
+                    if current_2nd_last_dim_index != insides[-3][x]:
+                        vls.append(api.Map(insides[-2][start_2nd_last_dim:x], insides[-1][start_2nd_last_dim:x], index_name=param_dims[1][len(inside_dimen_positions) - 1]))
+                        current_2nd_last_dim_index = insides[-3][x]
+                        start_2nd_last_dim = x
+                        outer_index_list.append(current_2nd_last_dim_index)
+                vls.append(api.Map(insides[-2][start_2nd_last_dim:x + 1], insides[-1][start_2nd_last_dim:x + 1], index_name=param_dims[1][len(inside_dimen_positions) - 1]))
+                for r in reversed(range(len(inside_dimen_positions) - 1)):
+                    vls = api.Map(outer_index_list, vls, index_name=param_dims[1][r])
+                values_in_map, type_ = api.to_database(vls)
+            elif len(inside_dimen_positions) > 2:
+                exit("More than two inside dimensions currently not supported")
             else:
-                values_in_map, type_ = api.to_database(''.join(values_in_map))
+                values_in_map, type_ = api.to_database(''.join(insides[-1]))
             entity_class_split = entity_class.split("__")
+            added = []
             for c, entity_dim_name in enumerate(entity_name):
                 added = target_db.add_update_entity_item(entity_class_name=entity_class_split[c],
                                                          name=entity_dim_name
@@ -81,9 +96,10 @@ def write_param(entity_class, param, alternative_name, new_values, param_dims):
                                                               type=type_,
                                                               alternative_name=alternative_name)
 
+            #print("added param " + param)
+            target_db.commit_session("Parameter added")
             insides = [[] for _ in range(len(inside_dimen_positions) + 1)]
         entity_name = next_entity_name
-    target_db.commit_session("Parameter added")
 
 
 if len(sys.argv) < 2:
@@ -95,6 +111,9 @@ class_for_scalars = settings["class_for_scalars"]
 url_db = settings["target_db"]
 file = open(settings["model_data"])
 alternative_name = settings["alternative_name"]
+
+if len(sys.argv) > 2:
+    url_db = sys.argv[2]
 
 with open('param_dimens.yaml', 'r') as yaml_file:
     param_listing = yaml.safe_load(yaml_file)
@@ -129,14 +148,14 @@ with DatabaseMapping(url_db) as target_db:
         next_line = file.readline()  # This block of code will read the next line, but also the lines after in case there is no ';' sign to mark the end of the MathProg command
         if not next_line:
             break
-        elements = next_line.replace(';', ' ;').replace(',', ' , ').replace('[', ' [ ').replace(']', ' ] ').split()
+        elements = next_line.replace(':', ' :').replace(';', ' ;').replace(',', ' , ').replace('[', ' [ ').replace(']', ' ] ').split()
         if len(elements) > 0:
             if elements[0] == "set" or elements[0] == "param":
                 while next_line.find(';') == -1:  # Check if the data is all in one line. find() returns -1 if not found --> adds lines until ;
                     next_line = file.readline()
                     if not next_line:
                         break
-                    elements = elements + ['\n'] + next_line.replace(';', ' ;').replace(',', ' , ').replace('[', ' [ ').replace(']', ' ] ').split()
+                    elements = elements + ['\n'] + next_line.replace(':', ' :').replace(';', ' ;').replace(',', ' , ').replace('[', ' [ ').replace(']', ' ] ').split()
             else:
                 continue
         else:
@@ -160,9 +179,9 @@ with DatabaseMapping(url_db) as target_db:
                         print("Class " + class_name + " found")
                         class_name_found = True
                         break
-                for class_name in dimens_to_param:
-                    if second_word == class_name:
-                        print("Class " + class_name + " going into parameters")
+                for class_name_2 in dimens_to_param:
+                    if second_word == class_name_2:
+                        print("Class " + class_name_2 + " going into parameters")
                         class_name_to_parameters = True
                         break
                 if not class_name_found and not class_name_to_parameters:
@@ -183,6 +202,7 @@ with DatabaseMapping(url_db) as target_db:
                     if added:
                         target_db.commit_session("Added entities from class " + class_name)
                     continue
+
 
             if first_word == "param":
                 param_dimen_start = False
@@ -349,7 +369,7 @@ with DatabaseMapping(url_db) as target_db:
                             for d, u in enumerate(current_untabbed_locations):
                                 temp[u] = data_headers[d][data_counter[d]]
                             temp[tabbed_row_orig_pos] = current_row_header
-                            temp[tabbed_col_orig_pos] = tabbed_column_header_name
+                            temp[tabbed_col_orig_pos] = copy.copy(tabbed_column_header_name)
                             temp[-1] = value
                             new_values.append(copy.copy(temp))
                         value_row_pos = 0
@@ -358,12 +378,12 @@ with DatabaseMapping(url_db) as target_db:
                     if next_word == 'default' and i == 0:
                         is_default_value = True
                         default_value = elements[i+1]
-                        default_value_db, default_value_type = api.to_database(elements[i+1])
+                        default_value_db, default_value_type = api.to_database(float(elements[i+1]))
                         added = target_db.add_update_parameter_definition_item(entity_class_name=entity_class,
                                                                        name=second_word,
                                                                        default_value=default_value_db,
                                                                        default_type=default_value_type)
-                        if added[0]:
+                        if added[1]:
                             try:
                                 target_db.commit_session("added default")
                             except:
@@ -393,6 +413,6 @@ with DatabaseMapping(url_db) as target_db:
 
 file.close()
 
-pr.dump_stats('profile.pstat')
+#pr.dump_stats('profile.pstat')
 
 

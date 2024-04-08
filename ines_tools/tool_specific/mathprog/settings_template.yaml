@@ -1,0 +1,11 @@
+model_code:
+  model.mod
+model_data:
+  model.dat
+target_db:
+  sqlite:///test.sqlite
+dimens_to_param:
+- TIMESLICE
+- YEAR
+class_for_scalars:
+  model

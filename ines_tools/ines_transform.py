@@ -89,7 +89,7 @@ def copy_entities(source_db: DatabaseMapping, target_db: DatabaseMapping, copy_e
     return target_db
 
 
-def transform_parameters(source_db, target_db, parameter_transforms, ts_to_map=False):
+def transform_parameters(source_db: DatabaseMapping, target_db: DatabaseMapping, parameter_transforms, ts_to_map=False):
     for source_entity_class, sec_def in parameter_transforms.items():
         for target_entity_class, tec_def in sec_def.items():
             for source_param, target_param_def in tec_def.items():
