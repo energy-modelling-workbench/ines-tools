@@ -111,6 +111,8 @@ with DatabaseMapping(url_db) as target_db:
         all_params_dimen_dict_list = {}
         default_value_dict = {}
         for param_def in param_defs:
+            if param_def["name"] == "timeslices_to_time":
+                continue
             params_name_list.append(param_def["name"])
             all_params_dimen_dict_list[param_def["name"]] = param_listing[param_def["name"]][0] + param_listing[param_def["name"]][1]
             default_value_dict[param_def["name"]] = param_def["default_value"]
@@ -129,7 +131,7 @@ with DatabaseMapping(url_db) as target_db:
         for param_name, param_dimens in class__param__all_dimens[entity_class["name"]].items():
             param_default_value = None
             if class__param__default_value[entity_class["name"]][param_name] != None:
-                param_default_value = api.from_database(class__param__default_value[entity_class["name"]][param_name])
+                param_default_value = api.from_database(class__param__default_value[entity_class["name"]][param_name], "float")
             entities = target_db.get_entity_items(entity_class_name=entity_class["name"])
             entity_bynames = []
             values = []
@@ -204,7 +206,7 @@ with DatabaseMapping(url_db) as target_db:
                                 line.append("\t")
                                 for value in values[previous_table_start:k + 1]:
                                     line.append("\t")
-                                    line.append(value)
+                                    line.append(str(value))
                                 line = "".join(line)
                                 print(line, file=file)
                                 entity_byname_previous = entity_byname
@@ -237,7 +239,7 @@ with DatabaseMapping(url_db) as target_db:
                             line.append("\t")
                             for value in values[k].values:
                                 line.append("\t")
-                                line.append(value)
+                                line.append(str(value))
                             line = "".join(line)
                             print(line, file=file)
 
@@ -264,7 +266,7 @@ with DatabaseMapping(url_db) as target_db:
                                 line.append("\t")
                                 for value_inner in value_outer.values:
                                     line.append("\t")
-                                    line.append(value_inner)
+                                    line.append(str(value_inner))
                                 line = "".join(line)
                                 print(line, file=file)
 
