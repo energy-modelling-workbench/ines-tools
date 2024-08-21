@@ -1,16 +1,19 @@
 import sys
 import json
+from pathlib import Path
 from importlib.machinery import SourceFileLoader
 import spinedb_api as api
 from spinedb_api import purge
 
-#path = dirname(@__DIR__)
-#tool = "pypsa"#"spineopt"#
-
-ARGS = sys.argv[1:]
-mapfile = ARGS[0]
-input = ARGS[1]
-output = ARGS[2]
+mapfile = sys.argv[1]
+input = sys.argv[2]
+if len(sys.argv)>3:
+	output = sys.argv[3]
+else:
+	# temporary solution because Spine Toolbox does not allow other files than spine databases in its workflow
+	# needs to be adjusted for every tool
+	path = Path(__file__).resolve().parent
+	output = str(path.joinpath("data/input_pypsa.json"))
 
 map = SourceFileLoader("map", mapfile).load_module()
 
