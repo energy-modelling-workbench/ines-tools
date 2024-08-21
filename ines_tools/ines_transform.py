@@ -11,77 +11,67 @@ def copy_entities(source_db: DatabaseMapping, target_db: DatabaseMapping, copy_e
         else:
             targets = targets
         for target in targets:
+            target_def = []
+            filter_parameter = None
             if isinstance(target, str):
                 target_class = target
-                target_def = []
             else:
+                if len(target) > 1:  # Ugly way to check if there was a list or multiple dicts instead of just single dict
+                    print("Wrong format in the entity copy definition: " + target)
                 for target_class, target_def in target.items():
-                    if len(target) > 1:  # Ugly way to check if there was a list instead of just single dict
-                        print("Too deep entity copy definition: " + target)
+                    pass  # Based on the previous check, there should be only one dict
+                if isinstance(target_def[-1], dict) or isinstance(target_def[-1], str):
+                    filter_parameter = target_def.pop(-1)
             for entity in source_db.get_entity_items(entity_class_name=source_class):
                 error = None
                 error_ea = None
                 param_flag = True
-                # If a fourth parameter is provided, check that the entity has the feature in the fourth parameter defined (otherwise it's not copied)
-                if len(target_def) == 2:
-                    try:
-                        int(target_def[1])
-                    except:
+                if filter_parameter:
+                    # If a feature/method parameter is provided through a dict, check that the entity has the method defined (otherwise it's not copied)
+                    if isinstance(filter_parameter, dict):
                         param_flag = False
-                        if isinstance(target_def[1], dict):  # If the last item is a dict, it means that a specific method from the parameter_value_list must be chosen
-                            for target_feature, target_method in target_def[1].items():
-                                param_values = source_db.get_parameter_value_items(entity_class_name=source_class,
-                                                                                   parameter_definition_name=target_feature,
-                                                                                   entity_name=entity["name"])
-                                for param_value in param_values:
-                                    if api.from_database(param_value["value"], param_value["type"]) == target_method:
-                                        param_flag = True
-                                        break  # Enough if one alternative has the method set
-                        else:  # If the last item is not a dict, then that feature must have one of the methods selected.
+                        for target_feature, target_method in filter_parameter.items():
                             param_values = source_db.get_parameter_value_items(entity_class_name=source_class,
-                                                                               parameter_definition_name=target_def[1],
+                                                                               parameter_definition_name=target_feature,
                                                                                entity_name=entity["name"])
-                            if param_values:
-                                param_flag = True
+                            for param_value in param_values:
+                                if api.from_database(param_value["value"], param_value["type"]) == target_method:
+                                    param_flag = True
+                                    break  # Enough if one alternative has the method set
+                    # If the last item is a string, then that parameter must have a value or a method selected.
+                    elif isinstance(filter_parameter, str):
+                        param_flag = False
+                        param_values = source_db.get_parameter_value_items(entity_class_name=source_class,
+                                                                           parameter_definition_name=filter_parameter,
+                                                                           entity_name=entity["name"])
+                        if param_values:
+                            param_flag = True
                 if param_flag:
-                    new_entity_name_list = []
-                    if len(target_def) == 0:  # direct copy
-                        new_entity_name_list.append(entity["name"])
+                    entity_byname_list = []
+                    if not target_def:  # No definition, so straight copy
+                        entity_byname_list.append(entity["name"])
                     else:
-                        if len(target_def) > 1:  # With multiple target_def list members, we need to find out what it contains
-                            try:
-                                int(target_def[1])  # check if the target_def list second entry is a positive number (if not, there is a string filter and remove the filter)
-                            except:
-                                target_positions = target_def[0]
-                            else:
-                                target_positions = target_def
-                        else:
-                            target_positions = target_def  # With one list member, it has to be a position number
-                        if entity["element_name_list"]:  # source is n dimensional
-                            for j in range(len(target_positions)):
-                                new_entity_name_list.append(entity["element_name_list"][int(target_positions[j]) - 1])
-                        else:  # source is 1 dimensional
-                            for j in range(len(target_positions)):
-                                new_entity_name_list.append(entity["name"])
-                    if len(new_entity_name_list) > 1:
+                        for target_positions in target_def:
+                            entity_bynames = []
+                            for target_position in target_positions:
+                                entity_bynames.append(entity["entity_byname"][int(target_position) - 1])
+                            entity_byname_list.append('__'.join(entity_bynames))
+                    if len(entity_byname_list) > 1:
                         added, error = target_db.add_entity_item(entity_class_name=target_class,
-                                                                 element_name_list=new_entity_name_list)
+                                                                 entity_byname=entity_byname_list)
                     else:
                         added, error = target_db.add_entity_item(entity_class_name=target_class,
-                                                                 name=new_entity_name_list[0])
-                    # added2, error2 = target_db.add_entity_alternative_item(alternative_name="Base", entity_class_name=target_class, entity_byname=(new_entity_name, ), active=False)
-                    for ea in source_db.get_entity_alternative_items("entity_alternative",
-                                                                     entity_class_name=entity["entity_class_name"],
-                                                                     entity_name=entity["name"]):
-                        added_ea, error_ea = target_db.add_entity_alternative_item(entity_class_name=target_class,
-                                                                                   entity_byname=new_entity_name_list,
-                                                                                   alternative_name=ea[
-                                                                                       "alternative_name"],
-                                                                                   active=ea["active"])
+                                                                 entity_byname=(entity_byname_list[0], ))
+                    if len(target_class.split('__')) == 1:
+                        for k, source_class_element in enumerate(source_class.split('__')):
+                            for ea in source_db.get_entity_alternative_items(entity_class_name=source_class_element,
+                                                                             entity_name=entity["entity_byname"][k]):
+                                added_ea = target_db.add_update_entity_alternative_item(entity_class_name=target_class,
+                                                                                        entity_byname=entity_byname_list,
+                                                                                        alternative_name=ea["alternative_name"],
+                                                                                        active=ea["active"])
                 if error:
                     print("Copying entities: " + error)
-                if error_ea:
-                    print("Copying entity_alternatives: " + error_ea)
     try:
         target_db.commit_session("Added entities")
     except:
@@ -97,23 +87,74 @@ def transform_parameters(source_db: DatabaseMapping, target_db: DatabaseMapping,
                     for parameter in source_db.get_parameter_value_items(entity_class_name=source_entity_class,
                                                                      parameter_definition_name=source_param,
                                                                      entity_name=source_entity["name"]):
-                        target_param_value, type_, entity_byname_list \
-                            = process_parameter_transforms(source_entity, parameter, target_param_def, ts_to_map)
+                        target_param_value, type_, entity_byname_tuple \
+                            = process_parameter_transforms(source_entity, parameter["value"],
+                                                           parameter["type"], target_param_def, ts_to_map)
                         for target_parameter_name, target_value in target_param_value.items():
                             #print(target_entity_class + ', ' + target_parameter_name)
                             added, error = target_db.add_item("parameter_value", check=True,
                                            entity_class_name=target_entity_class,
                                            parameter_definition_name=target_parameter_name,
-                                           entity_byname=tuple(entity_byname_list),
+                                           entity_byname=entity_byname_tuple,
                                            alternative_name=parameter["alternative_name"],
                                            value=target_value,
                                            type=type_)
                             if error:
                                 print("transform parameters error: " + error)
+    try:
+        target_db.commit_session("Added parameters")
+    except:
+        print("failed to commit parameters")
     return target_db
 
 
-def process_parameter_transforms(source_entity, parameter, target_param_def, ts_to_map):
+def transform_parameters_use_default(source_db: DatabaseMapping, target_db: DatabaseMapping,
+                                     parameter_transforms, default_alternative="base", ts_to_map=False):
+    for source_entity_class, sec_def in parameter_transforms.items():
+        for target_entity_class, tec_def in sec_def.items():
+            for source_param, target_param_def in tec_def.items():
+                for source_entity in source_db.get_entity_items(entity_class_name=source_entity_class):
+                    flag_base_alt = False
+                    for parameter in source_db.get_parameter_value_items(entity_class_name=source_entity_class,
+                                                                     parameter_definition_name=source_param,
+                                                                     entity_name=source_entity["name"]):
+                        if parameter["alternative_name"] == default_alternative:
+                            flag_base_alt = True
+                        target_param_value, type_, entity_byname_tuple \
+                            = process_parameter_transforms(source_entity, parameter["value"], parameter["type"],
+                                                           target_param_def, ts_to_map)
+                        for target_parameter_name, target_value in target_param_value.items():
+                            added, error = target_db.add_item("parameter_value", check=True,
+                                           entity_class_name=target_entity_class,
+                                           parameter_definition_name=target_parameter_name,
+                                           entity_byname=entity_byname_tuple,
+                                           alternative_name=parameter["alternative_name"],
+                                           value=target_value,
+                                           type=type_)
+                            if error:
+                                print("transform parameters error: " + error)
+                    if not flag_base_alt:
+                        param_def_item = source_db.get_parameter_definition_item(entity_class_name=source_entity_class,
+                                                                                 name=source_param)
+                        target_param_value, type_, entity_byname_tuple \
+                            = process_parameter_transforms(source_entity, param_def_item["default_value"],
+                                                           param_def_item["default_type"], target_param_def, ts_to_map)
+                        for target_parameter_name, target_value in target_param_value.items():
+                            if not type_ == float and api.from_database(target_value, type_) != 0:  # Ignore if the default value is zero (this could be made optional if needed)
+                                added, error = target_db.add_item("parameter_value", check=True,
+                                              entity_class_name=target_entity_class,
+                                              parameter_definition_name=target_parameter_name,
+                                              entity_byname=entity_byname_tuple,
+                                              alternative_name=default_alternative,
+                                              value=target_value,
+                                              type=type_)
+                                if error:
+                                    print("transform parameter definition to parameters error: " + error)
+
+    return target_db
+
+
+def process_parameter_transforms(source_entity, parameter_value, parameter_type, target_param_def, ts_to_map):
     target_param_value = {}
     target_multiplier = None
     target_positions = []
@@ -121,12 +162,16 @@ def process_parameter_transforms(source_entity, parameter, target_param_def, ts_
         target_param = target_param_def[0]
         if len(target_param_def) > 1:
             target_multiplier = float(target_param_def[1])
+            if target_multiplier == 1.0:
+                target_multiplier = None
             if len(target_param_def) > 2:
                 target_positions = target_param_def[2]
     else:
         target_param = target_param_def
 
-    data = api.from_database(parameter["value"], parameter["type"])
+    data = api.from_database(parameter_value, parameter_type)
+    if data == None:
+        exit("Data without value for parameter " + target_param_def[0] + ". Could be parameter default value set to none.")
     try:
         int(data)
         if target_multiplier:
@@ -135,8 +180,16 @@ def process_parameter_transforms(source_entity, parameter, target_param_def, ts_
         if target_multiplier:
             if data.VALUE_TYPE == 'time series':
                 data.values = data.values * target_multiplier
-            else:
+            elif len(target_param_def) < 4:
                 data.values = [i * target_multiplier for i in data.values]
+            else:
+                collect_data_values = []
+                collect_data_indexes = []
+                for first_inside_dim in data.values:
+                    collect_data_values.extend(first_inside_dim.values)
+                    collect_data_indexes.extend(first_inside_dim.indexes)
+                data.values = [i * target_multiplier for i in collect_data_values]
+                data.indexes = collect_data_indexes
         if ts_to_map:
             if data.VALUE_TYPE == 'time series':
                 data = api.Map([str(x) for x in data.indexes], data.values, index_name=data.index_name)
@@ -144,19 +197,28 @@ def process_parameter_transforms(source_entity, parameter, target_param_def, ts_
     value, type_ = api.to_database(data)
     target_param_value = {target_param: value}
 
-    entity_byname_list = []
-    if target_positions:
-        for dimension in target_positions:
-            if source_entity["element_name_list"]:
-                entity_byname_list.append(source_entity["element_name_list"][int(dimension) - 1])
-            else:
-                for element in source_entity["entity_byname"]:
-                    entity_byname_list.append(element)
+    if isinstance(target_param_def, str) or len(target_param_def) < 3:  # direct name copy
+        entity_byname_tuple = source_entity["entity_byname"]
     else:
-        for element in source_entity["entity_byname"]:
-            entity_byname_list.append(element)
+        entity_byname_list = []
+        for target_positions in target_param_def[2]:
+            entity_bynames = []
+            for target_position in target_positions:
+                entity_bynames.append(source_entity["element_name_list"][int(target_position) - 1])
+            entity_byname_list.append('__'.join(entity_bynames))
+        entity_byname_tuple = tuple(entity_byname_list)
+    # if target_positions:
+    #     for dimension in target_positions:
+    #         if source_entity["element_name_list"]:
+    #             entity_byname_list.append(source_entity["element_name_list"][int(dimension) - 1])
+    #         else:
+    #             for element in source_entity["entity_byname"]:
+    #                 entity_byname_list.append(element)
+    # else:
+    #     for element in source_entity["entity_byname"]:
+    #         entity_byname_list.append(element)
 
-    return target_param_value, type_, entity_byname_list
+    return target_param_value, type_, entity_byname_tuple
 
 
 def process_methods(source_db, target_db, parameter_methods):
@@ -166,16 +228,16 @@ def process_methods(source_db, target_db, parameter_methods):
                 for source_entity in source_db.get_entity_items(entity_class_name=source_entity_class):
                     for parameter in source_db.get_parameter_value_items(parameter_definition_name=source_feature,
                                                                          entity_name=source_entity["name"]):
-                        specific_parameters, type_, entity_byname_list = process_parameter_methods(source_entity, parameter, f_values)
+                        specific_parameters, entity_byname_list = process_parameter_methods(source_entity, parameter, f_values)
                         for target_parameter_name, target_value in specific_parameters.items():
                             #print(target_entity_class + ', ' + target_parameter_name)
                             added, error = target_db.add_item("parameter_value", check=True,
                                            entity_class_name=target_entity_class,
                                            parameter_definition_name=target_parameter_name,
-                                           entity_byname=tuple(entity_byname_list),
+                                           entity_byname=entity_byname_list,
                                            alternative_name=parameter["alternative_name"],
                                            value=target_value,
-                                           type=type_)
+                                           type="str")
                             if error:
                                 print("process methods error: " + error)
     return target_db
@@ -209,30 +271,58 @@ def process_parameter_methods(source_entity, parameter, f_values):
             for element in source_entity["entity_byname"]:
                 entity_byname_list.append(element)
 
-    return target, None, entity_byname_list
+    return target, entity_byname_list
 
 
 def copy_entities_to_parameters(source_db, target_db, entity_to_parameters):
     for source_entity_class, target in entity_to_parameters.items():
         for target_entity_class, target_parameter in target.items():
-            for target_parameter_name, target_parameter_type in target_parameter.items():
+            for target_parameter_name, target_parameter_def in target_parameter.items():
                 for entity in source_db.get_items("entity", entity_class_name=source_entity_class):
-                    for ea in source_db.get_entity_alternative_items(entity_class_name=source_entity_class, entity_name=entity["name"]):
-                        if target_parameter_type == "array":
-                            value_in_chosen_type = api.Array([entity["name"]])
-                        else:
-                            value_in_chosen_type = [entity["name"]]
-                        val, type_ = api.to_database(value_in_chosen_type)
-                        added, error = target_db.add_parameter_value_item\
-                            (entity_class_name=target_entity_class,
-                             parameter_definition_name=target_parameter_name,
-                             entity_byname=entity["entity_byname"],
-                             value=val,
-                             type=type_,
-                             alternative_name=ea["alternative_name"]
-                             )
-                        if error:
-                            print("copy entity to parameter error: " + error)
+                    for k, source_class_element in enumerate(source_entity_class.split('__')):
+                        for ea in source_db.get_entity_alternative_items(entity_class_name=source_class_element,
+                                                                         entity_name=entity["entity_byname"][k]):
+                            entity_byname_list = []
+                            for target_positions in target_parameter_def[2]:
+                                entity_bynames = []
+                                for target_position in target_positions:
+                                    if entity["element_name_list"]:
+                                        entity_bynames.append(entity["element_name_list"][int(target_position) - 1])
+                                    else:
+                                        entity_bynames.append(entity["name"])
+                                entity_byname_list.append('__'.join(entity_bynames))
+                            entity_byname_tuple = tuple(entity_byname_list)
+
+                            if target_parameter_def[0] == "entity_name":
+                                if target_parameter_def[0] == "array":
+                                    value_in_chosen_type = api.Array([entity["name"]])
+                                else:
+                                    value_in_chosen_type = entity["name"]
+                                val, type_ = api.to_database(value_in_chosen_type)
+                                added, update, error = target_db.add_update_parameter_value_item\
+                                    (entity_class_name=target_entity_class,
+                                     parameter_definition_name=target_parameter_name,
+                                     entity_byname=entity_byname_tuple,
+                                     value=val,
+                                     type=type_,
+                                     alternative_name=ea["alternative_name"]
+                                     )
+                                if error:
+                                    print("copy entity to parameter error: " + error)
+                            elif target_parameter_def[0] == "new_value":
+                                val, type_ = api.to_database(target_parameter_def[1])
+                                added, update, error = target_db.add_update_parameter_value_item\
+                                    (entity_class_name=target_entity_class,
+                                     parameter_definition_name=target_parameter_name,
+                                     entity_byname=entity_byname_tuple,
+                                     value=val,
+                                     type=type_,
+                                     alternative_name=ea["alternative_name"]
+                                     )
+                                if error:
+                                    print("copy entity to parameter error: " + error)
+                            else:
+                                exit("Inappropriate choice in entities_to_parameters.yaml definition file: " + entity["name"])
     return target_db
 
 

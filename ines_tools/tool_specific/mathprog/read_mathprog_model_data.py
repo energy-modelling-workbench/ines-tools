@@ -7,6 +7,8 @@ import spinetoolbox as toolbox
 import yaml
 #import cProfile
 import copy
+import csv
+from datetime import datetime
 
 #pr = cProfile.Profile()
 
@@ -52,6 +54,10 @@ def write_param(entity_class, param, alternative_name, new_values, param_dims):
             next_entity_name_joined = ''
         for r, inside_dim in enumerate(inside_dimen_positions):  # Get the index names for the current value row
             insides[r].append(value_row[inside_dim])
+        try:
+            value_row[-1] = float(value_row[-1])
+        except ValueError:
+            pass
         insides[-1].append(value_row[-1])  # Get the values for the current value row (from the last column of the value_row
         # If the entity name changes, then write the data for the current entity_name
         if entity_name_joined != next_entity_name_joined or q == len(new_values) - 1:
@@ -78,16 +84,23 @@ def write_param(entity_class, param, alternative_name, new_values, param_dims):
             elif len(inside_dimen_positions) > 2:
                 exit("More than two inside dimensions currently not supported")
             else:
-                values_in_map, type_ = api.to_database(''.join(insides[-1]))
+                if len(insides[-1]) == 1:
+                    values_in_map, type_ = api.to_database(insides[-1][0])
+                else:
+                    exit("Scalar parameter value has more than one value in the input file_ " + entity_name_joined)
             entity_class_split = entity_class.split("__")
             added = []
             for c, entity_dim_name in enumerate(entity_name):
                 added = target_db.add_update_entity_item(entity_class_name=entity_class_split[c],
                                                          name=entity_dim_name
                                                          )
-
+                added_ea = target_db.add_update_entity_alternative_item(entity_class_name=entity_class,
+                                                                        entity_byname=[entity_dim_name],
+                                                                        alternative_name=alternative_name,
+                                                                        active=True
+                                                                        )
             added = target_db.add_update_entity_item(entity_class_name=entity_class,
-                                                     element_name_list=tuple(entity_name)
+                                                     entity_byname=tuple(entity_name)
                                                      )
             added, error = target_db.add_parameter_value_item(entity_class_name=entity_class,
                                                               parameter_definition_name=param,
@@ -97,10 +110,9 @@ def write_param(entity_class, param, alternative_name, new_values, param_dims):
                                                               alternative_name=alternative_name)
 
             #print("added param " + param)
-            target_db.commit_session("Parameter added")
             insides = [[] for _ in range(len(inside_dimen_positions) + 1)]
         entity_name = next_entity_name
-
+    target_db.commit_session("Values for parameter " + param + " added")
 
 if len(sys.argv) < 2:
     exit("You need to provide the name (and possibly path) of the settings file as an argument")
@@ -111,6 +123,8 @@ class_for_scalars = settings["class_for_scalars"]
 url_db = settings["target_db"]
 file = open(settings["model_data"])
 alternative_name = settings["alternative_name"]
+entities_from_entities = settings["entities_from_entities"]
+read_separate_csv = settings["read_separate_csv"]
 
 if len(sys.argv) > 2:
     url_db = sys.argv[2]
@@ -125,7 +139,9 @@ with DatabaseMapping(url_db) as target_db:
     target_db.purge_items('alternative')
     target_db.commit_session("Purged alternatives")
     target_db.add_alternative_item(name=alternative_name)
-    target_db.commit_session("Added alternative " + alternative_name)
+    target_db.add_scenario_item(name=alternative_name)
+    target_db.add_scenario_alternative_item(alternative_name=alternative_name, scenario_name=alternative_name, rank=0)
+    target_db.commit_session("Added alternative and scenario " + alternative_name)
     class__param = {}
     class__param__all_dimens = {}
     class__dimen = {}
@@ -135,6 +151,8 @@ with DatabaseMapping(url_db) as target_db:
         params_name_list = []
         all_params_dimen_dict_list = {}
         for param in params:
+            if param["name"] in read_separate_csv:
+                continue
             params_name_list.append(param["name"])
             all_params_dimen_dict_list[param["name"]] = param_listing[param["name"]][0] + param_listing[param["name"]][1]
         class__param[entity_class["name"]] = params_name_list
@@ -199,6 +217,11 @@ with DatabaseMapping(url_db) as target_db:
                         if read_set_elements:
                             set_member_names.append(element)
                             added, error = target_db.add_entity_item(entity_class_name=class_name, name=element)
+                            added_ea = target_db.add_update_entity_alternative_item(entity_class_name=class_name,
+                                                                                    entity_byname=[element],
+                                                                                    alternative_name=alternative_name,
+                                                                                    active=True
+                                                                                    )
                     if added:
                         target_db.commit_session("Added entities from class " + class_name)
                     continue
@@ -392,6 +415,8 @@ with DatabaseMapping(url_db) as target_db:
                         continue
 
 
+
+
                 # Keeping code to deal with 'in' in the param dimension defs - needs to be implemented
                     # if not param_dimen_start and not param_attributes_start:
                     #     param_name_alias.append(next_word)
@@ -409,10 +434,55 @@ with DatabaseMapping(url_db) as target_db:
                     #             param_dimens.append(param_dimen_candidate)
                     #             break
 
+    for entity_from_entity in entities_from_entities:
+        [[to_entity_class, temp]] = entity_from_entity.items()
+        [[from_entity_class, mapping]] = temp.items()
+        for entity in target_db.get_entity_items(entity_class_name=from_entity_class):
+            entity_dimens = []
+            for m in mapping:
+                entity_dimens.append(entity["entity_byname"][m - 1])
+            target_db.add_update_entity_item(entity_class_name=to_entity_class,
+                                             element_name_list=tuple(entity_dimens))
+    target_db.commit_session("Added entities from entities")
 
+    for param_name, read_csv_filename in read_separate_csv.items():
+        print(param_name)
+        try:
+            with open(read_csv_filename) as csv_file:
+                csv_reader = csv.reader(csv_file, delimiter=',')
+                csv_header = []
+                csv_data = []
+                first_line = True
+                for row in csv_reader:
+                    if first_line:
+                        for item in row:
+                            csv_header.append(item)
+                            csv_data.append([])
+                        first_line = False
+                    else:
+                        for k, item in enumerate(row):
+                            csv_data[k].append(item)
+            vls = []
+            for index_value in zip(csv_data[1], csv_data[2]):
+                vls.append(api.Map(indexes=[index_value[0]], values=[float(index_value[1])], index_name=csv_header[1]))
+            index_datetimes = []
+            for index_datetime in csv_data[0]:
+                index_datetimes.append(api.DateTime(datetime.strptime(index_datetime, "%Y-%m-%dT%H:%M:%S")))
 
+            vls = api.Map(indexes=index_datetimes, values=vls, index_name=csv_header[0])
+            p_value, p_type = api.to_database(vls)
+            added, error = target_db.add_parameter_value_item(entity_class_name=class_for_scalars,
+                                                              entity_byname=(class_for_scalars, ),
+                                                              parameter_definition_name=param_name,
+                                                              alternative_name=alternative_name,
+                                                              type=p_type,
+                                                              value=p_value
+                                                              )
+            if error:
+                print("Could not add data from csv file " + read_csv_filename)
+        except FileNotFoundError:
+            print("No csv data file for " + read_csv_filename)
+    target_db.commit_session("Added data from csv files")
 file.close()
 
 #pr.dump_stats('profile.pstat')
-
-
