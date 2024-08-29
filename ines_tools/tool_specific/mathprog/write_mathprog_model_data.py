@@ -92,9 +92,12 @@ with open(sys.argv[1], 'r') as yaml_file:
     settings = yaml.safe_load(yaml_file)
 dimens_to_param = settings["dimens_to_param"]
 class_for_scalars = settings["class_for_scalars"]
-url_db = settings["target_db"]
 file = open("model_new.dat", 'w+')
 alternative_name = settings["alternative_name"]
+
+if len(sys.argv) < 3:
+    exit("You need to provide the url of the source Spine database as an argument")
+url_db = sys.argv[2]
 
 with open('param_dimens.yaml', 'r') as yaml_file:
     param_listing = yaml.safe_load(yaml_file)
@@ -115,7 +118,10 @@ with DatabaseMapping(url_db) as target_db:
                 continue
             params_name_list.append(param_def["name"])
             all_params_dimen_dict_list[param_def["name"]] = param_listing[param_def["name"]][0] + param_listing[param_def["name"]][1]
-            default_value_dict[param_def["name"]] = param_def["default_value"]
+            if param_def["name"] != "DiscountRateIdv":
+                default_value_dict[param_def["name"]] = param_def["default_value"]
+            else:
+                default_value_dict[param_def["name"]] = None
         class__param[entity_class["name"]] = params_name_list
         class__param__all_dimens[entity_class["name"]] = all_params_dimen_dict_list
         class__param__default_value[entity_class["name"]] = default_value_dict

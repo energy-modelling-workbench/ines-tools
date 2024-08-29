@@ -114,6 +114,7 @@ def write_param(entity_class, param, alternative_name, new_values, param_dims):
         entity_name = next_entity_name
     target_db.commit_session("Values for parameter " + param + " added")
 
+
 if len(sys.argv) < 2:
     exit("You need to provide the name (and possibly path) of the settings file as an argument")
 with open(sys.argv[1], 'r') as yaml_file:
