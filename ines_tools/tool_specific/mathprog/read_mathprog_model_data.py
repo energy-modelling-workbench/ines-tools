@@ -1,16 +1,12 @@
 import spinedb_api as api
 from spinedb_api import DatabaseMapping
 import sys
-import pyarrow
 import numpy
-import spinetoolbox as toolbox
 import yaml
-#import cProfile
 import copy
 import csv
 from datetime import datetime
 
-#pr = cProfile.Profile()
 
 def make_nd_array(new_values, data_headers):
     header_len_list = []

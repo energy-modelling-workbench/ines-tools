@@ -1,11 +1,10 @@
-import spinedb_api as api
 from spinedb_api import DatabaseMapping
 import sys
 import yaml
 
 
 if len(sys.argv) < 2:
-    exit("You need to provide the name (and possibly path) of the settings file as an argument")
+    exit("You need to provide the name (including path if in different folder) of the settings file as an argument")
 
 with open(sys.argv[1], 'r') as yaml_file:
     settings = yaml.safe_load(yaml_file)

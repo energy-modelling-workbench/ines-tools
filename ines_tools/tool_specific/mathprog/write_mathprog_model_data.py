@@ -5,10 +5,8 @@ import pyarrow
 import numpy
 import spinetoolbox as toolbox
 import yaml
-#import cProfile
 import copy
 
-#pr = cProfile.Profile()
 
 def write_param(entity_class, param, alternative_name, new_values, param_dims):
     previous_entity_name = []
@@ -87,7 +85,7 @@ def write_param(entity_class_name, param, target_db):
 
 
 if len(sys.argv) < 2:
-    exit("You need to provide the name (and possibly path) of the settings file as an argument")
+    exit("You need to provide the name (including path if in different folder) of the settings file as an argument")
 with open(sys.argv[1], 'r') as yaml_file:
     settings = yaml.safe_load(yaml_file)
 dimens_to_param = settings["dimens_to_param"]
