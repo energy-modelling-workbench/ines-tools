@@ -444,6 +444,11 @@ with DatabaseMapping(url_db) as target_db:
 
     for param_name, read_csv_filename in read_separate_csv.items():
         print(param_name)
+        added, error = target_db.add_parameter_definition_item(entity_class_name=class_for_scalars,
+                                                               name=param_name
+                                                               )
+        if error:
+            print("Could not add parameter definition for csv data: " + error)
         try:
             with open(read_csv_filename) as csv_file:
                 csv_reader = csv.reader(csv_file, delimiter=',')

@@ -165,11 +165,14 @@ with DatabaseMapping(url_db) as target_db:
             added, error = target_db.add_entity_class_item(name=set_name, dimension_name_list=set_dimen_list[i])
         else:
             added, error = target_db.add_entity_class_item(name=set_name)
-
+        if error:
+            exit("Exiting, db not changed: " + error)
     for i, param_name in enumerate(param_names):
         added, error = target_db.add_parameter_definition_item(name=param_name,
                                                                entity_class_name='__'.join(class_param_dimen_list[i]),
                                                                description=' '.join(inside_param_dimen_list[i]))
+        if error:
+            exit("Exiting, db not changed: " + error)
 
     target_db.commit_session("Model structure added from a Mathprog file")
 
