@@ -5,6 +5,8 @@ from spinedb_api.exception import NothingToCommit
 import typing
 from sys import exit
 
+#  from ines_tools.tool_specific.mathprog.write_mathprog_model_data import entity_byname
+
 
 def assert_success(result, warn=False):
     error = result[-1]
@@ -132,9 +134,10 @@ def copy_entities(
     try:
         target_db.commit_session("Added entities")
     except NothingToCommit:
-        pass
+        print("Warning! No entities to be added")
     except DBAPIError as e:
-        print("failed to commit entities and entity_alternatives")
+        print(e)
+        exit("failed to commit entities and entity_alternatives")
     return target_db
 
 
@@ -272,7 +275,7 @@ def transform_parameters_use_default(
 
     return target_db
 
-def transform_parameters_entity_from_parameter(        
+def transform_parameters_entity_from_parameter(
     source_db: DatabaseMapping,
     target_db: DatabaseMapping,
     parameter_transforms: dict,
@@ -280,24 +283,24 @@ def transform_parameters_entity_from_parameter(
 ):
     """
     Transforms parameters from source database entity to target database entity.
-    The target entity name is gotten from a parameter of the source entity 
-    instead of being the same entity name. 
+    The target entity name is gotten from a parameter of the source entity
+    instead of being the same entity name.
 
     Example:
     parameter_transforms = {
-        "Store":{ 
+        "Store":{
             "node":{
                 "bus":{
                     'capital_cost': 'storage_investment_cost',
                     'e_max_pu': 'storage_state_upper_limit',
                 }
             }
-        }  
+        }
     }
     Adds parameters from the source "Store" class entities to the target "node" class entities.
     The target entity name is the value of source "Store" class parameter "bus".
     Dict keys are source parameter names and dict values are target parameter names.
-    
+
     Args:
         source_db (DatabaseMapping): Source database mapping
         target_db (DatabaseMapping): Target database mapping
@@ -310,7 +313,7 @@ def transform_parameters_entity_from_parameter(
     for source_entity_class, sec_def in parameter_transforms.items():
         for target_entity_class, parameter_entity in sec_def.items():
             for parameter_entity_name, tec_def in parameter_entity.items():
-                source_entities = source_db.get_entity_items(entity_class_name=source_entity_class) 
+                source_entities = source_db.get_entity_items(entity_class_name=source_entity_class)
                 entity_parameters = source_db.get_parameter_value_items(
                     entity_class_name=source_entity_class,
                     parameter_definition_name=parameter_entity_name,
@@ -360,7 +363,7 @@ def transform_parameters_entity_from_parameter(
     except DBAPIError as e:
         print("failed to commit parameters")
     return target_db
-    
+
 
 def process_parameter_transforms(
     entity_byname_orig, p_value, p_type, target_param_def, ts_to_map
@@ -435,7 +438,7 @@ def process_methods(source_db, target_db, parameter_methods):
     for source_entity_class, sec_values in parameter_methods.items():
         for target_entity_class, tec_values in sec_values.items():
             for source_feature, f_values in tec_values.items():
-                source_entities = source_db.get_entity_items(entity_class_name=source_entity_class) 
+                source_entities = source_db.get_entity_items(entity_class_name=source_entity_class)
                 parameter_values = source_db.get_parameter_value_items(
                                     parameter_definition_name=source_feature,
                                     entity_class_name= source_entity_class)
@@ -575,17 +578,17 @@ def transform_parameters_to_relationship_entities(source_db: DatabaseMapping, ta
     parameter_to_relationship = {
         source_entity_class:{
             target_entity_class:{
-                parameter_target_entity_class: { 
+                parameter_target_entity_class: {
                     source_parameter: {                #Parameter that gives the other participants of the relationship
                         'position': 1 or 2 or tuple    #Position of the parameter in the relationship, *required
                         'parameters':{                 #Additional parameters *optional
                             additional_source_parameter_1: additional_target_parameter_1,
                             additional_source_parameter_2: additional_target_parameter_2
-                    }  
+                    }
                 }
-            }    
+            }
         }
-    } 
+    }
     position = 1 -> relationship: source_parameter_value__source_entity
     position = 2 -> relationship: source_entity__source_parameter_value
 
@@ -593,7 +596,7 @@ def transform_parameters_to_relationship_entities(source_db: DatabaseMapping, ta
     parameter_target_entity_class, source_parameter and 'position' are tuples
     where 'position' points the positions of the parameters in the relationship
     position = (1,3) -> source_parameter_value_1__source_entity__source_parameter_value_2
- 
+
     Example:
     parameter_to_relationship : {
         'Generator':{
@@ -677,7 +680,7 @@ def transform_parameters_to_relationship_entities(source_db: DatabaseMapping, ta
                         else: # two member relationship
                             for parameter in parameter_values:
                                 if parameter["entity_name"] == entity["name"]:
-                                    parameter_value = api.from_database(parameter["value"], parameter["type"]) 
+                                    parameter_value = api.from_database(parameter["value"], parameter["type"])
                             print(entity['name'] + "_param_target")
                             if info['position'] == 2:
                                 target_class = target_entity_class_name + "__" + parameter_target_entity_class_name
@@ -693,7 +696,7 @@ def transform_parameters_to_relationship_entities(source_db: DatabaseMapping, ta
                         assert_success(target_db.add_entity_item(
                             entity_class_name=target_class,
                             entity_byname=target_entity_byname
-                        ), warn=True)  
+                        ), warn=True)
                         print(entity['name'] + "_rel")
                         #add additional parameters to the relationship created
                         if 'parameters' in info.keys():
@@ -731,7 +734,7 @@ def transform_parameters_to_relationship_entities(source_db: DatabaseMapping, ta
     except DBAPIError as e:
         print("failed to add relationships from parameters")
     return target_db
-    
+
 def get_parameter_from_DB(db, param_name, alt_ent_class):
     parameter_ = db.get_parameter_value_item(
         parameter_definition_name=param_name,
@@ -762,3 +765,23 @@ def add_item_to_DB(db, param_name, alt_ent_class, value, value_type=None):
         type=type_,
     ))
     return db
+
+
+def copy_parameter(db, param_object, class_name=False, param_name=False, entity_byname=False, alt_name=False, column_name=False):
+    if column_name:
+        if not isinstance(column_name, list):
+            exit("copy parameter function: column name argument is not a list")
+        if len(column_name) > 2:
+            exit("copy parameter function: not handling map dimensions beyond one")
+        p_value = api.from_database(param_object["value"], param_object["type"])
+        p_value.index_name = column_name[0]
+        p_map, p_type = api.to_database(p_value)
+    assert_success(db.add_parameter_value_item(
+        check=True,
+        entity_class_name=class_name if class_name else param_object["entity_class_name"],
+        parameter_definition_name=param_name if param_name else param_object["parameter_definition_name"],
+        entity_byname=entity_byname if entity_byname else param_object["entity_byname"],
+        alternative_name=alt_name if alt_name else param_object["alternative_name"],
+        value=p_map if column_name else param_object["value"],
+        type=param_object["type"]
+    ))
