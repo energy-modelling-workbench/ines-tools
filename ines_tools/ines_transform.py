@@ -1,5 +1,7 @@
 import spinedb_api as api
 from spinedb_api import DatabaseMapping, TimeSeries
+from sqlalchemy.exc import DBAPIError
+from spinedb_api.exception import NothingToCommit
 import typing
 from sys import exit
 
@@ -125,7 +127,9 @@ def copy_entities(
                                     ))
     try:
         target_db.commit_session("Added entities")
-    except:
+    except NothingToCommit:
+        pass
+    except DBAPIError as e:
         print("failed to commit entities and entity_alternatives")
     return target_db
 
@@ -171,7 +175,9 @@ def transform_parameters(
                         ))
     try:
         target_db.commit_session("Added parameters")
-    except:
+    except NothingToCommit:
+        pass
+    except DBAPIError as e:
         print("failed to commit parameters")
     return target_db
 
@@ -337,7 +343,9 @@ def transform_parameters_entity_from_parameter(
                                     ))
     try:
         target_db.commit_session("Added parameters")
-    except:
+    except NothingToCommit:
+        pass
+    except DBAPIError as e:
         print("failed to commit parameters")
     return target_db
     
@@ -446,7 +454,9 @@ def process_methods(source_db, target_db, parameter_methods):
                             ))
     try:
         target_db.commit_session("Process methods")
-    except:
+    except NothingToCommit:
+        pass
+    except DBAPIError as e:
         print("failed to commit process methods")
     return target_db
 
@@ -692,7 +702,9 @@ def transform_parameters_to_relationship_entities(source_db: DatabaseMapping, ta
 
     try:
         target_db.commit_session("Added relationships from parameters")
-    except:
+    except NothingToCommit:
+        pass
+    except DBAPIError as e:
         print("failed to add relationships from parameters")
     return target_db
     
