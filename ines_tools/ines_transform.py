@@ -256,31 +256,42 @@ def transform_parameters_use_default(
 
     return target_db
 
-"""
-Same as transform_parameters, but the target entity name is gotten from a parameter of the source entity
-instead of being the same entity name. 
-
-For example:
-parameter_transforms = {
-    "Store":{ 
-        "node":{
-            "bus":{
-                'capital_cost': 'storage_investment_cost',
-                'e_max_pu': 'storage_state_upper_limit',
-            }
-        }
-    }  
-}
-adds parameters from the source "Store" class entities to the target "node" class entities.
-The target entity name is the value of source "Store" class parameter "bus"
-"""
-
 def transform_parameters_entity_from_parameter(        
     source_db: DatabaseMapping,
     target_db: DatabaseMapping,
-    parameter_transforms,
+    parameter_transforms: dict,
     ts_to_map=False,
 ):
+    """
+    Transforms parameters from source database entity to target database entity.
+    The target entity name is gotten from a parameter of the source entity 
+    instead of being the same entity name. 
+
+    Example:
+    parameter_transforms = {
+        "Store":{ 
+            "node":{
+                "bus":{
+                    'capital_cost': 'storage_investment_cost',
+                    'e_max_pu': 'storage_state_upper_limit',
+                }
+            }
+        }  
+    }
+    Adds parameters from the source "Store" class entities to the target "node" class entities.
+    The target entity name is the value of source "Store" class parameter "bus".
+    Dict keys are source parameter names and dict values are target parameter names.
+    
+    Args:
+        source_db (DatabaseMapping): Source database mapping
+        target_db (DatabaseMapping): Target database mapping
+        parameter_transforms (dict(dict(dict(dict(str))))): Transform information
+        ts_to_map (bool): Flag to change timeseries to maps
+
+    Returns:
+        target_db: (DatabaseMapping)
+    """
+
     for source_entity_class, sec_def in parameter_transforms.items():
         for target_entity_class, parameter_entity in sec_def.items():
             for parameter_entity_name, tec_def in parameter_entity.items():
@@ -535,59 +546,66 @@ def copy_entities_to_parameters(source_db, target_db, entity_to_parameters):
     return target_db
 
 
-"""
-transform_parameters_to_relationship_entities:
+def transform_parameters_to_relationship_entities(source_db: DatabaseMapping, target_db: DatabaseMapping, parameter_to_relationship: dict):
+    """
+    Creates a relationship from an entity and its parameter_value.
+    Additionally moves parameters to this relationship.
 
-Creates a relationship from an entity and its parameter_value.
-Additionally moves some parameters to this relationship.
-
-parameter_to_relationship = 
-source_entity_class:{
-    target_entity_class:{
-        parameter_target_entity_class: { ###the entity class of the other part of the relationship
-             source_parameter: {
-             'position': 1 or 2 or tuple   *required   #position of the parameter in the relationship
-             'parameters':{                 *optional
-                additional_source_parameter_1: additional_target_parameter_1,
-                additional_source_parameter_2: additional_target_parameter_2
-             }  
+    parameter_to_relationship = {
+        source_entity_class:{
+            target_entity_class:{
+                parameter_target_entity_class: { 
+                    source_parameter: {                #Parameter that gives the other participants of the relationship
+                        'position': 1 or 2 or tuple    #Position of the parameter in the relationship, *required
+                        'parameters':{                 #Additional parameters *optional
+                            additional_source_parameter_1: additional_target_parameter_1,
+                            additional_source_parameter_2: additional_target_parameter_2
+                    }  
+                }
+            }    
         }
-    }    
-} 
-position = 1 ->  relationship: source_parameter_value__source_entity
-position = 2 -> relationship: source_entity__source_parameter_value
+    } 
+    position = 1 -> relationship: source_parameter_value__source_entity
+    position = 2 -> relationship: source_entity__source_parameter_value
 
-If creating relationship with multiple members from multiple parameters,
-parameter_target_entity_class, source_parameter and 'position' are tuples
-where 'position' points the positions of the parameters in the relationship
-position = (1,3) -> source_parameter_value_1__source_entity__source_parameter_value_2
-
-Example:
-parameter_to_relationship : {
-    'Generator':{
-        'unit':{
-            'to_node':{
-                'bus': {
-                    'position': 2,
-                    'parameters':{
-                        'capital_cost': 'investment_cost',
-                        'marginal_cost': 'other_operational_cost',
+    If creating relationship with multiple members from multiple parameters,
+    parameter_target_entity_class, source_parameter and 'position' are tuples
+    where 'position' points the positions of the parameters in the relationship
+    position = (1,3) -> source_parameter_value_1__source_entity__source_parameter_value_2
+ 
+    Example:
+    parameter_to_relationship : {
+        'Generator':{
+            'unit':{
+                'to_node':{
+                    'bus': {
+                        'position': 2,
+                        'parameters':{
+                            'capital_cost': 'investment_cost',
+                            'marginal_cost': 'other_operational_cost',
+                        }
                     }
                 }
-            }
-    'Line': {
-        'link':{
-            ('node','node'):{
-                ('bus0','bus1'):{
-                    'position': (1,3)
-                },
+        'Line': {
+            'link':{
+                ('node','node'):{
+                    ('bus0','bus1'):{
+                        'position': (1,3)
+                    },
+                }
             }
         }
     }
-}
-"""
 
-def transform_parameters_to_relationship_entities(source_db, target_db, parameter_to_relationship):
+    Args:
+        source_db (DatabaseMapping): source database mapping
+        target_db (DatabaseMapping): target database mapping
+        parameter_to_relationship (dict(dict(dict(dict(dict()))))): Transfrom information
+
+    Returns:
+        target_db (DatabaseMapping)
+
+    """
     for source_entity_class, target_entity_class in parameter_to_relationship.items():
         for target_entity_class_name, parameter_target_entity_class in target_entity_class.items():
             for parameter_target_entity_class_name, source_parameter in parameter_target_entity_class.items():
