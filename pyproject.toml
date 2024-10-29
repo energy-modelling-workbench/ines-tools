@@ -1,0 +1,28 @@
+[project]
+name = "ines-tools"
+dynamic = ["version"]
+authors = [{name = "contributors"}]
+description = "Tools for data processing with the ines spec"
+keywords = ["energy system modelling"]
+readme = {file = "README.md", content-type = "text/markdown"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.9, <3.13"
+dependencies = [
+    "spinedb_api",
+    "pyyaml",
+]
+
+[project.urls]
+Repository = "https://github.com/energy-modelling-workbench/ines-tools"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "ines_tools.__version__"}
+readme = {file = ["README.md"]}
