@@ -75,9 +75,10 @@ def copy_entities(
                                             )
                     elif isinstance(filter_parameter, str):
                         param_flag = False
-                        if param_values:
-                            if param_values["entity_name"] == entity["name"]:
+                        for param_value in param_values:
+                            if param_value["entity_name"] == entity["name"]:
                                 param_flag = True
+                                break
                 if param_flag:
                     entity_byname_list = []
                     if not target_def:  # No definition, so straight copy

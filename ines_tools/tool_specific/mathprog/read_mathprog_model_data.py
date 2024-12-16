@@ -295,6 +295,10 @@ with DatabaseMapping(url_db) as target_db:
                 for i, next_word in enumerate(elements):
                     if next_word == '\n':  # Skip end of lines
                         continue
+                    if next_word == '#':
+                        while elements[i + 1] != '\n':
+                            elements.pop(i + 1)
+                        continue
                     if next_word == ';':
                         if new_values:
                             write_param(entity_class, param, alternative_name, new_values, param_listing[param])
