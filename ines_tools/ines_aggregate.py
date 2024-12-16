@@ -10,7 +10,7 @@ import pandas as pd
 import json
 import numpy as np
 
-def ines_aggregrate(db_source : DatabaseMapping,transformer_df : pd.Dataframe,target_poly : str ,entity_class : tuple,entity_names : tuple,alternative : str,source_parameter : str,weight : str,defaults = None) -> dict:
+def ines_aggregrate(db_source : DatabaseMapping,transformer_df : pd.DataFrame,target_poly : str ,entity_class : tuple,entity_names : tuple,alternative : str,source_parameter : str,weight : str,defaults = None) -> dict:
 
     # db_source : Spine DB
     # transforme : dataframes format, columns: source, target, converion_factor_names...
