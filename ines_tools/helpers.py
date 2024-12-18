@@ -9,7 +9,7 @@ class WeightSettings:
     source_name: str
     target_name: str
     weight_names: List[str]
-    weights: Dict[Tuple[str, str], List[float]]
+    weights: DataFrame[Tuple[str, str], List[float]]
 
 def parse_map_of_weights(file_path):
     """
